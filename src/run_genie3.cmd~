@@ -1,0 +1,13 @@
+#!/bin/bash
+#SBATCH --job-name="Run-GENIE3"
+#SBATCH --workdir=.
+#SBATCH --output=GENIE3_%j.out
+#SBATCH --error=GENIE3_%j.err
+#SBATCH --cpus-per-task=1
+#SBATCH --ntasks=1
+#SBATCH --time=01:00:00
+
+
+module load python/3.7.4
+
+python src/run_genie3.py -i res/PilotWorkflow/data/norm_data.tsv -o res/PilotWorkflow/data/genie3_res.tsv
