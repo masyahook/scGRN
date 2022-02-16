@@ -221,7 +221,7 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
     
     nodes = nx.draw_networkx_nodes(G, pos, node_color='pink', ax=ax, node_size=node_size)
     if TF_names is not None:
-        nx.draw_networkx_nodes(G.subgraph(TF_names), pos=pos, node_color='limegreen', ax=ax, node_size=1200)
+        nx.draw_networkx_nodes(G.subgraph(TF_names), pos=pos, node_color='limegreen', ax=ax, node_size=node_size)
     nx.draw_networkx_labels(G, pos, ax=ax)
     
     if G.edges():
@@ -260,7 +260,7 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
         pc = mpl.collections.PatchCollection(mpl_straight_edges + mpl_curved_edges, cmap=cmap)
         pc.set_array(rhos)
         cbar = plt.colorbar(pc)
-        cbar.ax.set_ylabel('Spearman correlation', rotation=270, fontsize=15, labelpad=15)
+        cbar.ax.set_ylabel('Spearman correlation', rotation=270, fontsize=17, labelpad=17)
     
         if label_edges:
             edge_weights = nx.get_edge_attributes(G, 'importance')
@@ -281,10 +281,14 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
     return ax
 
 
-def process_ndex_net(raw_G, G_name):
+def process_ndex_net(raw_G, G_name, remove_single_nodes=True):
     """
     Process ndex net
     """
+    
+    import networkx as nx
+    import re
+    from functools import reduce
     
     G = nx.DiGraph()
         
@@ -304,7 +308,11 @@ def process_ndex_net(raw_G, G_name):
         tmp_nodes = {}
         node_duplicates = {}
         for node_i, node_info in raw_G.nodes(data=True):
-            name = '+'.join(re.findall(r'(?<=\:).+?(?=\))', node_info['name'], re.IGNORECASE))
+            if ':' in node_info['name']:
+                name = '+'.join(re.findall(r'(?<=\:).+?(?=\))', node_info['name'], re.IGNORECASE))
+            else:
+                name = re.findall(r'(?<=\().+?(?=\))', node_info['name'], re.IGNORECASE)[0]
+            name = name[:name.find(',')] if '(' in name else name
             if name not in node_duplicates:
                 node_duplicates[name] = 0
             else:
@@ -359,6 +367,11 @@ def process_ndex_net(raw_G, G_name):
             G.add_edge(st_name, end_name, **attrs)
     else:
         raise NameError(f'No identified source for {G_name}')
+        
+    if remove_single_nodes:
+        single_node_sets = list(filter(lambda x: len(x) == 1, nx.weakly_connected_components(G)))
+        single_nodes = reduce(lambda x, y: x.union(y), single_node_sets) if len(single_node_sets) > 0 else set()
+        G.remove_nodes_from(single_nodes)
 
     return G
     
