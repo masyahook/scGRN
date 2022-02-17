@@ -1,4 +1,3 @@
-#.bashrc#
 PilotWorkflow/*
 R/*
 R_pipeline/*
@@ -10,4 +9,6 @@ intel/*
 res/*
 sbatch/*
 .*
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
 !/.gitignore
