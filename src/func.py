@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from functools import reduce  # for aggregate functions
+
 from sklearn.preprocessing import MinMaxScaler
 
 scale = lambda x, min_y, max_y: list(MinMaxScaler(feature_range=(min_y, max_y)).fit_transform(np.expand_dims(np.array(x), axis=1))[:, 0])
@@ -375,3 +377,16 @@ def process_ndex_net(raw_G, G_name, remove_single_nodes=True):
 
     return G
     
+    
+def get_tf_targ_ctx(df):
+    tf_target_dict = {'TF': [], 'target': [], 'importance': []}
+    tf_target_info = (
+        df.droplevel(axis=0, level=1).droplevel(axis=1, level=0)['TargetGenes']
+          .map(set)  # transform each list into set
+          .groupby('TF').agg(lambda x: reduce(lambda a, b: a.union(b), x))  # combine all targets per TF
+    )
+    for tf, target_info in tf_target_info.iteritems():
+        tf_target_dict['TF'] += [tf for target_name, score in target_info]
+        tf_target_dict['target'] += [target_name for target_name, score in target_info]
+        tf_target_dict['importance'] += [score for target_name, score in target_info]
+    return pd.DataFrame(tf_target_dict)
