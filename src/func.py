@@ -1,6 +1,9 @@
+import os
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import networkx as nx
 
 from functools import reduce  # for aggregate functions
 
@@ -210,7 +213,7 @@ def fancy_draw_network_edge_labels(
 
 
 def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
-               if_alpha_edges=False, cmap=plt.cm.plasma):
+               if_alpha_edges=False, plot_cmap=True, cmap=plt.cm.plasma):
     """
     Draw GRN using NetworkX.
     
@@ -259,10 +262,11 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
         if mpl_straight_edges is None:
             mpl_straight_edges = []
                 
-        pc = mpl.collections.PatchCollection(mpl_straight_edges + mpl_curved_edges, cmap=cmap)
-        pc.set_array(rhos)
-        cbar = plt.colorbar(pc)
-        cbar.ax.set_ylabel('Spearman correlation', rotation=270, fontsize=17, labelpad=17)
+        if plot_cmap:
+            pc = mpl.collections.PatchCollection(mpl_straight_edges + mpl_curved_edges, cmap=cmap)
+            pc.set_array(rhos)
+            cbar = plt.colorbar(pc)
+            cbar.ax.set_ylabel('Spearman correlation', rotation=270, fontsize=17, labelpad=17)
     
         if label_edges:
             edge_weights = nx.get_edge_attributes(G, 'importance')
@@ -390,3 +394,19 @@ def get_tf_targ_ctx(df):
         tf_target_dict['target'] += [target_name for target_name, score in target_info]
         tf_target_dict['importance'] += [score for target_name, score in target_info]
     return pd.DataFrame(tf_target_dict)
+
+
+def style_data_availability(df):
+    return df.style.apply(lambda x: ["background-color: green" if v == '+' else "background-color: red" if v == '-' else 'background: white' for v in x], axis=1)
+
+
+def get_adj_list(pat, data, data_type, method='grnboost2'):
+    _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+    data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
+    return pd.read_pickle(os.path.join(_DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}.pickle'))
+
+
+def get_nx_graph(pat, data, data_type, method='grnboost2'):
+    _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+    data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
+    return nx.read_gpickle(os.path.join(_DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}.gpickle'))
