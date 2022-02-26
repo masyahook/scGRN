@@ -400,13 +400,125 @@ def style_data_availability(df):
     return df.style.apply(lambda x: ["background-color: green" if v == '+' else "background-color: red" if v == '-' else 'background: white' for v in x], axis=1)
 
 
-def get_adj_list(pat, data, data_type, method='grnboost2'):
+def get_adj_list(pat, data, data_type, method='grnboost2', is_filter=False):
     _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
-    return pd.read_pickle(os.path.join(_DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}.pickle'))
+    filter_suffix = '' if not is_filter else '_filtered'
+    return pd.read_pickle(os.path.join(_DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}{filter_suffix}.pickle'))
 
 
-def get_nx_graph(pat, data, data_type, method='grnboost2'):
+def get_nx_graph(pat, data, data_type, method='grnboost2', is_filter=False):
     _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
-    return nx.read_gpickle(os.path.join(_DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}.gpickle'))
+    filter_suffix = '' if not is_filter else '_filtered'
+    return nx.read_gpickle(os.path.join(_DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}{filter_suffix}.gpickle'))
+
+
+def netgraph_community_layout(G, node_to_community, community_scale=3., node_scale=1., seed=42):
+    """
+    Compute the node positions for a modular graph.
+    """
+
+    # assert that there multiple communities in the graph; otherwise abort
+    communities = set(node_to_community.values())
+    if len(communities) < 2:
+        warnings.warn("Graph contains a single community. Unable to compute a community layout. Computing spring layout instead.")
+        return nx.spring_layout(G, weight='importance', **kwargs)
+
+    community_size = _get_community_sizes(node_to_community)
+    community_centroids = _get_community_positions(G, node_to_community, community_scale, seed=seed)
+    relative_node_positions = _get_node_positions(G, node_to_community, node_scale, seed=seed)
+
+    # combine positions
+    node_positions = dict()
+    for node, community in node_to_community.items():
+        xy = community_centroids[node]
+        delta = relative_node_positions[node] * community_size[community]
+        node_positions[node] = xy + delta
+
+    return node_positions
+
+
+def _get_community_sizes(node_to_community):
+    """
+    Compute the area of the canvas reserved for each community.
+    """
+    
+    def _invert_dict(mydict):
+        """Invert a dictionary such that values map to keys."""
+        inverse = dict()
+        for key, value in mydict.items():
+            inverse.setdefault(value, set()).add(key)
+        return inverse
+    
+    scale = (1, 1)
+    
+    total_nodes = len(node_to_community)
+    max_radius = np.linalg.norm(scale) / 2
+    scalar = max_radius / total_nodes
+    community_to_nodes = _invert_dict(node_to_community)
+    community_size = {community : len(nodes) * scalar for community, nodes in community_to_nodes.items()}
+    
+    return community_size
+
+
+def _get_community_positions(G, node_to_community, community_scale, seed):
+    """
+    Compute a centroid position for each community.
+    """
+    
+    # create a weighted graph, in which each node corresponds to a community,
+    # and each edge weight to the number of edges between communities
+    between_community_edges = _find_between_community_edges(G, node_to_community)
+
+    communities = set(node_to_community.values())
+    hypergraph = nx.DiGraph()
+    hypergraph.add_nodes_from(communities)
+    for (ci, cj), edges in between_community_edges.items():
+        hypergraph.add_edge(ci, cj, weight=len(edges))
+
+    # find layout for communities
+    pos_communities = nx.spring_layout(hypergraph, scale=community_scale, seed=seed)
+
+    # set node positions to position of community
+    pos = dict()
+    for node, community in node_to_community.items():
+        pos[node] = pos_communities[community]
+
+    return pos
+
+def _find_between_community_edges(G, node_to_community):
+    """Convert the graph into a weighted network of communities."""
+    edges = dict()
+
+    for (ni, nj) in G.edges():
+        ci = node_to_community[ni]
+        cj = node_to_community[nj]
+
+        if ci != cj:
+            try:
+                edges[(ci, cj)] += [(ni, nj)]
+            except KeyError:
+                edges[(ci, cj)] = [(ni, nj)]
+
+    return edges
+
+
+def _get_node_positions(G, node_to_community, node_scale, seed):
+    """
+    Positions nodes within communities.
+    """
+    communities = dict()
+    for node, community in node_to_community.items():
+        try:
+            communities[community] += [node]
+        except KeyError:
+            communities[community] = [node]
+
+    pos = dict()
+    for ci, nodes in communities.items():
+        subgraph = G.subgraph(nodes)
+        pos_subgraph = nx.spring_layout(subgraph, weight='importance', scale=node_scale, seed=seed)
+        pos.update(pos_subgraph)
+
+    return pos
