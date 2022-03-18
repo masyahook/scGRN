@@ -11,7 +11,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Process the list of adjacencies starting from saving it to pickle format, filtering the unimportant/false connections, and creating/saving a Networkx graph.')
     parser.add_argument('-f', '--fn', type=str, help='The full path to filename', required=True)
-    parser.add_argument('-q', '--q_thresh', type=float, help='The quantile threshold used to filter out unimportant/false connections.', default=0.8)
+    parser.add_argument('-q', '--q_thresh', type=float, help='The quantile threshold used to filter out unimportant/false connections.', default=0.9)
     args = parser.parse_args()
     
     # Defining file and path names 
@@ -51,20 +51,22 @@ if __name__ == '__main__':
     
     ####### 2nd step #######
     adj_list = out_df
+    adj_list['distance'] = 1 / adj_list['importance']
     
     # Filtering
+    q_thresh_suffix = str(args.q_thresh).replace(".", "_")
     thresh = adj_list['importance'].quantile(args.q_thresh)
     filtered_adj_list = adj_list.loc[lambda x: x.importance > thresh]
     
     # Saving
-    filtered_adj_list.to_pickle(f'pickle/{short_fn}_filtered.pickle')
+    filtered_adj_list.to_pickle(f'pickle/{short_fn}_filtered_{q_thresh_suffix}.pickle')
     
     ####### 3rd step #######
     # Creating graphs
-    filtered_graph = nx.from_pandas_edgelist(filtered_adj_list, 'TF', 'target', ['importance', 'rho'], create_using=nx.DiGraph)
-    graph = nx.from_pandas_edgelist(adj_list, 'TF', 'target', ['importance', 'rho'], create_using=nx.DiGraph)
+    graph = nx.from_pandas_edgelist(adj_list, 'TF', 'target', ['importance', 'rho', 'distance'], create_using=nx.DiGraph)
+    filtered_graph = nx.from_pandas_edgelist(filtered_adj_list, 'TF', 'target', ['importance', 'rho', 'distance'], create_using=nx.DiGraph)
     
     # Saving
     nx.write_gpickle(graph, f'nx_graph/{short_fn}.gpickle')
-    nx.write_gpickle(filtered_graph, f'nx_graph/{short_fn}_filtered.gpickle')
+    nx.write_gpickle(filtered_graph, f'nx_graph/{short_fn}_filtered_{q_thresh_suffix}.gpickle')
     

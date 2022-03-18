@@ -8,7 +8,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Filter the list of adjacencies depending on the -q parameter (quantile level).')
     parser.add_argument('-f', '--fn', type=str, help='The full path to the pickle-formatted list of adjacencies', required=True)
-    parser.add_argument('-q', '--q_thresh', type=float, help='The quantile threshold used to filter out unimportant/false connections.', default=0.8)
+    parser.add_argument('-q', '--q_thresh', type=float, help='The quantile threshold used to filter out unimportant/false connections.', default=0.9)
     args = parser.parse_args()
     
     # Defining path and file names
@@ -24,7 +24,8 @@ if __name__ == '__main__':
     filtered_adj_list = adj_list.loc[lambda x: x.importance > thresh]
     
     # Saving
-    filtered_adj_list.to_pickle(f'{short_fn}_filtered.pickle')
+    q_thresh_suffix = str(args.q_thresh).replace(".", "_")
+    filtered_adj_list.to_pickle(f'{short_fn}_filtered_{q_thresh_suffix}.pickle')
     
     
     

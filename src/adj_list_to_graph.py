@@ -1,10 +1,13 @@
 import argparse
 import os
+import re
 
 from functools import reduce  # for aggregate functions
 
 import pandas as pd
 import networkx as nx
+
+import warnings
 
 
 if __name__ == '__main__':
@@ -20,14 +23,23 @@ if __name__ == '__main__':
     short_fn = args.fn[args.fn.rfind('/') + 1:].replace('.pickle', '')
     
     # Reading the list of adjacencies
+    try:
+        q_thresh_suffix = re.findall(r'(?<=\_)0\_\d+(?=\.)', args.fn)[0]  # getting q_thresh suffix
+    except:
+        warnings.warn(f'Cannot infer q_thresh from the input filename: {args.fn}. Saving files without q_thresh..')
+        q_thresh_suffix = ''
     adj_list = pd.read_pickle(args.fn)
-    filtered_adj_list = pd.read_pickle(f'pickle/{short_fn}_filtered.pickle')
+    filtered_adj_list = pd.read_pickle(f'pickle/{short_fn}_filtered_{q_thresh_suffix}.pickle')
+    
+    # Adding distance metric as 1 / importance to each graph
+    adj_list['distance'] = 1 / adj_list['importance']
+    filtered_adj_list['distance'] = 1 / filtered_adj_list['importance']
     
     # Creating graphs
-    filtered_graph = nx.from_pandas_edgelist(filtered_adj_list, 'TF', 'target', ['importance', 'rho'], create_using=nx.DiGraph)
-    graph = nx.from_pandas_edgelist(adj_list, 'TF', 'target', ['importance', 'rho'], create_using=nx.DiGraph)
+    graph = nx.from_pandas_edgelist(adj_list, 'TF', 'target', ['importance', 'rho', 'distance'], create_using=nx.DiGraph)
+    filtered_graph = nx.from_pandas_edgelist(filtered_adj_list, 'TF', 'target', ['importance', 'rho', 'distance'], create_using=nx.DiGraph)
     
     # Saving
     nx.write_gpickle(graph, f'nx_graph/{short_fn}.gpickle')
-    nx.write_gpickle(filtered_graph, f'nx_graph/{short_fn}_filtered.gpickle')
+    nx.write_gpickle(filtered_graph, f'nx_graph/{short_fn}_filtered_{q_thresh_suffix}.gpickle')
     

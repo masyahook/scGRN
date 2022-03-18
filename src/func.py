@@ -1,9 +1,14 @@
 import os
 
+import itertools
+
+import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import networkx as nx
+
+from tqdm.notebook import tqdm
 
 from functools import reduce  # for aggregate functions
 
@@ -414,7 +419,7 @@ def get_nx_graph(pat, data, data_type, method='grnboost2', is_filter=False):
     return nx.read_gpickle(os.path.join(_DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}{filter_suffix}.gpickle'))
 
 
-def netgraph_community_layout(G, node_to_community, community_scale=3., node_scale=1., seed=42):
+def netgraph_community_layout(G, node_to_community, community_scale=1., node_scale=2., seed=42):
     """
     Compute the node positions for a modular graph.
     """
@@ -462,7 +467,7 @@ def _get_community_sizes(node_to_community):
     return community_size
 
 
-def _get_community_positions(G, node_to_community, community_scale, seed):
+def _get_community_positions(G, node_to_community, community_scale, seed, simple=True):
     """
     Compute a centroid position for each community.
     """
@@ -474,8 +479,10 @@ def _get_community_positions(G, node_to_community, community_scale, seed):
     communities = set(node_to_community.values())
     hypergraph = nx.DiGraph()
     hypergraph.add_nodes_from(communities)
-    for (ci, cj), edges in between_community_edges.items():
-        hypergraph.add_edge(ci, cj, weight=len(edges))
+    
+    if not simple:  
+        for (ci, cj), edges in between_community_edges.items():
+            hypergraph.add_edge(ci, cj, weight=len(edges))
 
     # find layout for communities
     pos_communities = nx.spring_layout(hypergraph, scale=community_scale, seed=seed)
@@ -487,13 +494,17 @@ def _get_community_positions(G, node_to_community, community_scale, seed):
 
     return pos
 
-def _find_between_community_edges(G, node_to_community):
+def _find_between_community_edges(G, node_to_community, fixed_community=None):
     """Convert the graph into a weighted network of communities."""
     edges = dict()
 
     for (ni, nj) in G.edges():
         ci = node_to_community[ni]
         cj = node_to_community[nj]
+        
+        if fixed_community is not None:
+            if fixed_community != ci and fixed_community != cj:
+                continue
 
         if ci != cj:
             try:
@@ -502,7 +513,6 @@ def _find_between_community_edges(G, node_to_community):
                 edges[(ci, cj)] = [(ni, nj)]
 
     return edges
-
 
 def _get_node_positions(G, node_to_community, node_scale, seed):
     """
@@ -522,3 +532,304 @@ def _get_node_positions(G, node_to_community, node_scale, seed):
         pos.update(pos_subgraph)
 
     return pos
+
+def squeeze_graph(G, partition):
+    """
+    Squeeze graph by picking only top nodes (according to number of connections) in each partition. This
+    step is needed to speed up the networkx visualization and show only the general POV on the graph.
+    """
+    
+    #### STEP 1 - filtering nodes
+    
+    # Setting up the size of the squeezed graph (number of nodes)
+    approximate_size = 4000
+    num_partitions = len(set(partition.values()))
+    
+    # Getting partition parameters
+    partition_sizes = {i: len([1 for node, k in partition.items() if k == i]) for i in range(num_partitions)}
+    min_partition_size = min(partition_sizes.values())
+    
+    # Normalizing partition size: divide each partition size by the minimal partition size
+    normalized_partition_size = {i: (size // min_partition_size) for i, size in partition_sizes.items()}
+    
+    # Getting scale factor - to get approximately size of the graph close to approximate_size
+    scale_factor = math.ceil(approximate_size / sum(normalized_partition_size.values()))
+    squeezed_partition = {i: (size * scale_factor) for i, size in normalized_partition_size.items()}
+    
+    top_nodes = []
+    for i, num_nodes in squeezed_partition.items():
+        # Getting partition graph
+        partition_i = G.subgraph([node for node, k in partition.items() if k == i])
+        
+        # Finding inter-community edges
+        intercommunity_edges = _find_between_community_edges(G, partition, i)
+        
+        # Calculating node importance according to number of inter-community edges
+        node_importance = {}
+        for (part_1, part_2), edges in intercommunity_edges.items():
+            for node_1, node_2 in edges:
+                curr_node = node_1 if part_1 == i else node_2
+                if curr_node in node_importance:
+                    node_importance[curr_node] += 1
+                else:
+                    node_importance[curr_node] = 1
+                    
+        # Getting top nodes in the partition according to maximum number of inter-community edge (node_importance)
+        top_nodes += list(dict(sorted(node_importance.items(), key=lambda x: x[1], reverse=True)[:squeezed_partition[i]]).keys())
+    
+    filtered_partition = {node: i for node, i in partition.items() if node in top_nodes}
+    filtered_G = G.subgraph(top_nodes)
+    
+    #### STEP 2 - filtering edges
+    
+    # Setting up the size of the squeezed graph (number of edges)
+    keep_num_edges = 20000
+    edges_to_keep = \
+        list(
+            dict(
+                sorted(
+                    {
+                        (st, end): data['importance'] for st, end, data in filtered_G.edges(data=True)
+                    }.items(), key=lambda x: x[1], reverse=True)[:keep_num_edges]
+            ).keys()
+    )
+    squeezed_G = filtered_G.edge_subgraph(edges_to_keep)
+    squeezed_partition = {node: i for node, i in filtered_partition.items() if node in squeezed_G.nodes()}
+    
+    return squeezed_G, squeezed_partition
+
+
+def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True, 
+               get_func_on_top=50, display_func=False, if_betweenness=True, 
+               k=3000): 
+    """
+    Plot word cloud that indicates the function(s) of each gene cluster.
+    """
+    
+    def get_elipsis_mask():
+        h, w = 600, 800
+        center = (int(w/2), int(h/2))
+        radius_x = w // 2
+        radius_y = h // 2
+
+        Y, X = np.ogrid[:h, :w]
+        mask = ((X - center[0])**2/radius_x**2 + (Y - center[1])**2/radius_y**2 >= 1)*255
+
+        return mask
+    
+    from wordcloud import WordCloud, STOPWORDS
+    
+    stopwords = STOPWORDS.union({'regulation', 'activity', 'positive', 'negative', 
+                                 'catabolic', 'process', 'protein', 'complex', 
+                                 'binding', 'response'})
+    
+    # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
+    partition_genes_ = {}
+    for gene, i in partition.items():
+        if i not in partition_genes_.keys():
+            partition_genes_[i] = [gene]
+        else:
+            partition_genes_[i] += [gene]
+           
+    # If display gene function in the word clouds
+    if display_func:
+            
+        # Whether to filter the genes on which we compute the word cloud (most important genes)
+        if filter_genes:
+            compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
+            distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+            partition_genes = {}
+            t = tqdm(partition_genes_.items())
+            for i, genes in t:
+                t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
+                top_len = min(get_func_on_top, len(genes))
+                top_gene_scores = dict(
+                    sorted(
+                        compute_centrality(
+                            G.subgraph(genes, , **distance_metric), k=min(G.subgraph(genes).order(), k)
+                        ).items(), 
+                        key=lambda x: x[1], reverse=True
+                    )[:top_len]
+                )
+                # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
+                # displaying wordclouds (higher score - higher "frequency" or word size)
+                norm_top_gene_scores = dict(
+                    zip(
+                        top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
+                    )
+                )
+                partition_genes[i] = norm_top_gene_scores
+            print('Filtered genes for generating the function word cloud..')
+        else:
+            partition_genes = {{gene_: 1 for gene_ in gene_list} for i, gene_list in partition_genes_.items()}
+            
+        # Unfolding func frequency according to gene (func) score 
+        # (e.g a gene has score=2 -> the gene is represented twice)
+        partition_genes_unfolded = {
+            i: reduce(
+                lambda x, y: x + y, [[gene]*gene_score for gene, gene_score in gene_score_list.items()]
+            ) for i, gene_score_list in partition_genes.items()
+        }
+
+        # Getting aggregated functions per gene in each cluster
+        partition_funcs = {
+            i: reduce(
+                lambda x, y: x + ' ' + y, 
+                [
+                    reduce(
+                        lambda x, y: x + ' ' + y, 
+                        gene_func[gene_func.index == gene].to_list(), 
+                        ''
+                    ) for gene in gene_list
+                ],
+                ''  
+            ) for i, gene_list in partition_genes_unfolded.items()
+        }
+
+        # Generating word counts from aggregated gene annotation texts -> obtaining main (most frequent) function tokens
+        word_counts = {i: WordCloud(stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
+        word_counts = {
+            i: (freqs if freqs else {'no': 1, 'found': 1, 'function': 1}) for i, freqs in word_counts.items()
+        }  # dealing with no word case
+        wordclouds = {
+            i: WordCloud(
+                max_font_size=40, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+            ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
+        }
+        
+    # Display main genes in decreasing order of importance (top `top_len` genes)
+    else:
+        
+        compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
+        distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+        partition_genes = {}
+        t = tqdm(partition_genes_.items())
+        for i, genes in t:
+            t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
+            top_len = min(get_func_on_top, len(genes))
+            top_gene_scores = dict(
+                sorted(
+                    compute_centrality(G.subgraph(genes, **distance_metric), k=min(G.subgraph(genes).order(), k)).items(), 
+                    key=lambda x: x[1], reverse=True
+                )[:top_len]
+            )
+            # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
+            # displaying wordclouds (higher score - higher "frequency" or word size)
+            norm_top_gene_scores = dict(
+                zip(
+                    top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
+                )
+            )
+            partition_genes[i] = norm_top_gene_scores
+        print('Obtained top genes for generating the gene word cloud..')
+        
+        wordclouds = {
+            i: WordCloud(
+                max_font_size=40, background_color='white', mask=get_elipsis_mask()
+            ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in partition_genes.items()
+        }
+        
+    
+    # Plotting
+    partition_coords = {}
+    for gene, coords in squeezed_pos.items():
+        if partition[gene] not in partition_coords:
+            partition_coords[partition[gene]] = [coords]
+        else:
+            partition_coords[partition[gene]] += [coords]
+    for i, coords in partition_coords.items():
+        x, y = zip(*coords)
+        min_x, max_x = min(x), max(x)
+        min_y, max_y = min(y), max(y)
+        ax.imshow(wordclouds[i], interpolation='bilinear', extent=[min_x, max_x, min_y, max_y])
+    
+    return ax
+
+
+def chunks(l, n):
+    """Divide a list of nodes `l` in `n` chunks"""
+    l_c = iter(l)
+    while 1:
+        x = tuple(itertools.islice(l_c, n))
+        if not x:
+            return
+        yield x
+
+
+# def betweenness_centrality_parallel(G, processes=None):
+#     """Parallel betweenness centrality  function"""
+#     import pathos
+
+#     p = pathos.helpers.mp.Pool(processes=processes)
+#     node_divisor = len(p._pool) * 4
+#     node_chunks = list(chunks(G.nodes(), int(G.order() / node_divisor)))
+#     num_chunks = len(node_chunks)
+#     bt_sc = p.starmap(
+#         nx.betweenness_centrality_subset,
+#         zip(
+#             [G] * num_chunks,
+#             node_chunks,
+#             [list(G)] * num_chunks,
+#             [True] * num_chunks,
+#             [None] * num_chunks,
+#         ),
+#     )
+
+#     # Reduce the partial solutions
+#     bt_c = bt_sc[0]
+#     for bt in bt_sc[1:]:
+#         for n in bt:
+#             bt_c[n] += bt[n]
+#     return bt_c
+
+
+# def betweenness_centrality_parallel(G, processes=None):
+#     """Parallel betweenness centrality  function"""
+#     import pathos.multiprocessing as mp
+
+#     p = mp.ProcessingPool()
+#     node_divisor = processes * 12
+#     node_chunks = list(chunks(G.nodes(), int(G.order() / node_divisor)))
+#     num_chunks = len(node_chunks)
+#     bt_sc = p.map(
+#         nx.betweenness_centrality_subset,
+#         [G] * num_chunks,
+#         node_chunks,
+#         [list(G)] * num_chunks,
+#         [True] * num_chunks,
+#         [None] * num_chunks,
+#     )
+
+#     # Reduce the partial solutions
+#     bt_c = bt_sc[0]
+#     for bt in bt_sc[1:]:
+#         for n in bt:
+#             bt_c[n] += bt[n]
+#     return bt_c
+
+
+def betweenness_centrality_parallel(G, processes=None):
+    """Parallel betweenness centrality  function"""
+    from multiprocessing import Pool
+    
+    p = Pool(processes=processes)
+    node_divisor = len(p._pool) * 4
+    node_chunks = list(chunks(G.nodes(), int(G.order() / node_divisor)))
+    num_chunks = len(node_chunks)
+    bt_sc = p.starmap(
+        nx.betweenness_centrality_subset,
+        zip(
+            [G] * num_chunks,
+            node_chunks,
+            [list(G)] * num_chunks,
+            [True] * num_chunks,
+            [None] * num_chunks,
+        ),
+    )
+
+    # Reduce the partial solutions
+    bt_c = bt_sc[0]
+    for bt in bt_sc[1:]:
+        for n in bt:
+            bt_c[n] += bt[n]
+    return bt_c
