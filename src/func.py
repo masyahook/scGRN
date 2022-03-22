@@ -3,8 +3,8 @@ import os
 
 # Tools/utils
 import itertools
-from tqdm.notebook import tqdm as tqdm_notebook
-from tqdm import tqdm
+from tqdm.notebook import tqdm
+from tqdm import tqdm as tqdm_cli
 from functools import reduce  # for aggregate functions
 
 # Data management
@@ -649,7 +649,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
             compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
             distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
             partition_genes = {}
-            t = tqdm_notebook(partition_genes_.items())
+            t = tqdm(partition_genes_.items())
             for i, genes in t:
                 t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
                 top_len = min(limit_anno_until, len(genes))
@@ -699,7 +699,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
         # Generating word counts from aggregated gene annotation texts -> obtaining main (most frequent) function tokens
         word_counts = {i: WordCloud(stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
         word_counts = {
-            i: (freqs if freqs else {'no': 1, 'found': 1, 'function': 1}) for i, freqs in word_counts.items()
+            i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
         }  # dealing with no word case
         wordclouds = {
             i: WordCloud(
@@ -713,7 +713,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
         compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
         distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
         partition_genes = {}
-        t = tqdm_notebook(partition_genes_.items())
+        t = tqdm(partition_genes_.items())
         for i, genes in t:
             t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
             top_len = min(limit_anno_until, len(genes))
@@ -758,7 +758,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
     return ax
 
            
-def process_communities(pat, data, data_type, algo='leiden', if_betweenness=True, limit_anno_until=50, k=5000):
+def process_communities(pat, data, data_type, algo='leiden', if_betweenness=True, limit_anno_until=50, k=5000, seed=42):
     """
     Process graph by finding its communities, annotate its communities, and save everything into .tsv format.
     """
@@ -813,7 +813,7 @@ def process_communities(pat, data, data_type, algo='leiden', if_betweenness=True
     distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
     all_partition_genes = {}
     partition_genes = {}
-    t = tqdm(partition_genes_.items())
+    t = tqdm_cli(partition_genes_.items())
     for i, genes in t:
         t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
         top_len = min(limit_anno_until, len(genes))
@@ -890,7 +890,7 @@ def process_communities(pat, data, data_type, algo='leiden', if_betweenness=True
         else:
             word_counts = {i: WordCloud(stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
             word_counts = {
-                i: (freqs if freqs else {'no': 1, 'found': 1, 'function': 1}) for i, freqs in word_counts.items()
+                i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
             }  # dealing with no word case
             wordclouds = {
                 i: WordCloud(
@@ -928,20 +928,27 @@ def process_communities(pat, data, data_type, algo='leiden', if_betweenness=True
     save_to_folder = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{algo}_communities')
     os.makedirs(save_to_folder, exist_ok=True)
     
-    communities_df = pd.DataFrame(index=pd.DataFrame(range(num_partitions), name='community_i'), 
+    communities_df = pd.DataFrame(index=pd.Series(range(num_partitions), name='community_i'), 
                                   columns=['num_nodes', 'num_edges', 'all_genes', 'sorted_central_genes', 
                                            'sorted_central_functions', 'sorted_central_gene_scores', 
                                            'most_frequent_function_words']
     )
     
+    communities_df = pd.DataFrame(index=pd.Series(range(num_partitions), name='community_i'), 
+                              columns=['num_nodes', 'num_edges', 'all_genes', 'sorted_central_genes', 
+                                       'sorted_central_functions', 'sorted_central_gene_scores', 
+                                       'most_frequent_function_words']
+)
+
     for i in range(num_partitions):
         # Getting information for each community
         genes = partition_genes_[i]
         community_subgraph = G.subgraph(genes)
         central_genes_and_scores = all_partition_genes[i]
         central_functions = [', '.join(gene_func[gene_func.index == gene].to_list()) for gene in genes]
-        freq_words = partition_funcs[i]
-        
+        freq_words = WordCloud(stopwords=stopwords).process_text(partition_funcs[i])
+        freq_words = dict(sorted(freq_words.items(), key=lambda x: x[1], reverse=True)) if freq_words else {'no found function': 1}  # dealing with no word case
+
         # Filling dataframe with the information
         communities_df.loc[i, 'num_nodes'] = community_subgraph.number_of_nodes()
         communities_df.loc[i, 'num_edges'] = community_subgraph.number_of_edges()
@@ -949,10 +956,10 @@ def process_communities(pat, data, data_type, algo='leiden', if_betweenness=True
         communities_df.loc[i, 'sorted_central_genes'] = '; '.join(central_genes_and_scores.keys())
         communities_df.loc[i, 'sorted_central_functions'] = '; '.join(central_functions)
         communities_df.loc[i, 'sorted_central_gene_scores'] = '; '.join(
-            [f'{score}:.3f' for score in central_genes_and_scores.values()]
+            [str(score) for score in central_genes_and_scores.values()]
         )
-        communities_df.loc[i, 'sorted_central_gene_scores'] = '; '.join(freq_words)
-        
+        communities_df.loc[i, 'most_frequent_function_words'] = '; '.join(freq_words.keys())
+
     communities_df.to_pickle(os.path.join(save_to_folder, f'{pat}_{data}_{data_type}_communities_info.pickle'))
         
 
