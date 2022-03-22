@@ -1,21 +1,36 @@
+# General
 import os
 
+# Tools/utils
 import itertools
+from tqdm.notebook import tqdm as tqdm_notebook
+from tqdm import tqdm
+from functools import reduce  # for aggregate functions
 
+# Data management
 import math
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import networkx as nx
+import igraph as ig
+import leidenalg as la
+from community import community_louvain
 
-from tqdm.notebook import tqdm
-
-from functools import reduce  # for aggregate functions
+# Visualization
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pygraphviz as pgv
+import colorcet as cc
+from matplotlib.colors import ListedColormap
+from wordcloud import WordCloud, STOPWORDS
+from termcolor import colored  # colored text output
 
 from sklearn.preprocessing import MinMaxScaler
 
 scale = lambda x, min_y, max_y: list(MinMaxScaler(feature_range=(min_y, max_y)).fit_transform(np.expand_dims(np.array(x), axis=1))[:, 0])
-
+stopwords = STOPWORDS.union({'regulation', 'activity', 'positive', 'negative', 
+                                 'catabolic', 'process', 'protein', 'complex', 
+                                 'binding', 'response'})
 
 def save_pickle(f, fn):
     """
@@ -599,14 +614,7 @@ def squeeze_graph(G, partition):
     return squeezed_G, squeezed_partition
 
 
-def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True, 
-               get_func_on_top=50, display_func=False, if_betweenness=True, 
-               k=3000): 
-    """
-    Plot word cloud that indicates the function(s) of each gene cluster.
-    """
-    
-    def get_elipsis_mask():
+def get_elipsis_mask():
         h, w = 600, 800
         center = (int(w/2), int(h/2))
         radius_x = w // 2
@@ -616,12 +624,14 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
         mask = ((X - center[0])**2/radius_x**2 + (Y - center[1])**2/radius_y**2 >= 1)*255
 
         return mask
-    
-    from wordcloud import WordCloud, STOPWORDS
-    
-    stopwords = STOPWORDS.union({'regulation', 'activity', 'positive', 'negative', 
-                                 'catabolic', 'process', 'protein', 'complex', 
-                                 'binding', 'response'})
+
+
+def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True, 
+               limit_anno_until=50, display_func=False, if_betweenness=True, 
+               k=3000): 
+    """
+    Plot word cloud that indicates the function(s) of each gene cluster.
+    """
     
     # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
     partition_genes_ = {}
@@ -639,14 +649,14 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
             compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
             distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
             partition_genes = {}
-            t = tqdm(partition_genes_.items())
+            t = tqdm_notebook(partition_genes_.items())
             for i, genes in t:
                 t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
-                top_len = min(get_func_on_top, len(genes))
+                top_len = min(limit_anno_until, len(genes))
                 top_gene_scores = dict(
                     sorted(
                         compute_centrality(
-                            G.subgraph(genes, , **distance_metric), k=min(G.subgraph(genes).order(), k)
+                            G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
                         ).items(), 
                         key=lambda x: x[1], reverse=True
                     )[:top_len]
@@ -703,13 +713,15 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
         compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
         distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
         partition_genes = {}
-        t = tqdm(partition_genes_.items())
+        t = tqdm_notebook(partition_genes_.items())
         for i, genes in t:
             t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
-            top_len = min(get_func_on_top, len(genes))
+            top_len = min(limit_anno_until, len(genes))
             top_gene_scores = dict(
                 sorted(
-                    compute_centrality(G.subgraph(genes, **distance_metric), k=min(G.subgraph(genes).order(), k)).items(), 
+                    compute_centrality(
+                        G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
+                    ).items(), 
                     key=lambda x: x[1], reverse=True
                 )[:top_len]
             )
@@ -725,7 +737,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
         
         wordclouds = {
             i: WordCloud(
-                max_font_size=40, background_color='white', mask=get_elipsis_mask()
+                max_font_size=80, background_color='white', mask=get_elipsis_mask()
             ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in partition_genes.items()
         }
         
@@ -745,72 +757,217 @@ def plot_cloud(G, partition, squeezed_pos, ax, gene_func, filter_genes=True,
     
     return ax
 
+           
+def process_communities(pat, data, data_type, algo='leiden', if_betweenness=True, limit_anno_until=50, k=5000):
+    """
+    Process graph by finding its communities, annotate its communities, and save everything into .tsv format.
+    """
+    
+    # Setting pathways to files
+    _PROJ_PATH = '/gpfs/projects/bsc08/bsc08890'
+    _FMETA = os.path.join(_PROJ_PATH, 'data/GSE145926_RAW/metadata.tsv')
+    _DATA_HOME = os.path.join(_PROJ_PATH, 'res/covid_19')
 
-def chunks(l, n):
-    """Divide a list of nodes `l` in `n` chunks"""
-    l_c = iter(l)
-    while 1:
-        x = tuple(itertools.islice(l_c, n))
-        if not x:
-            return
-        yield x
+    # Loading sample meta data, reordering patients
+    full_meta = pd.read_csv(_FMETA, sep='\t', index_col=0)
 
+    # Getting information about all patients
+    _ALL_PATIENTS = full_meta.index.to_list()
+    _ALL_FIG_DIRS = {
+        pat: os.path.join(_DATA_HOME, pat, 'figs/grnboost2') for pat in _ALL_PATIENTS
+    }
+    
+    # Loading the graph
+    G = get_nx_graph(pat, data, data_type, is_filter=True)
+    
+    
+    ###### FINDING COMMUNITIES IN THE GRAPH #######
+    
+    if algo == 'louvain':
+        partition = community_louvain.best_partition(G.to_undirected(), weight='importance', random_state=seed)
+    else:
+        G_igraph = ig.Graph.from_networkx(G.to_undirected())
+        la_partition = la.find_partition(G_igraph, la.ModularityVertexPartition, weights='importance', seed=seed)
+        partition = {G_igraph.vs[node]['_nx_name']: i for i, cluster_nodes in enumerate(la_partition) for node in cluster_nodes}
+        
+    num_partitions = len(set(partition.values()))
+    print(f'Number of partitions using {algo} algorithm: {colored(num_partitions, "cyan")}')
+    
+    
+    ###### FINDING HIGH-CENTRALITY GENES AND CORRESPONDING FUNCTIONS IN EACH COMMUNITY USING GO ANNOTATION ######
+    
+    # Loading gene GO description
+    gene_func = pd.read_csv(os.path.join(_PROJ_PATH, 'data/gene_go_func.txt'), sep='\t', index_col=0) \
+        .rename(columns={'GO term name': 'GO_func'}).drop_duplicates().dropna()['GO_func']
+    
+    # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
+    partition_genes_ = {}
+    for gene, i in partition.items():
+        if i not in partition_genes_.keys():
+            partition_genes_[i] = [gene]
+        else:
+            partition_genes_[i] += [gene]
 
-# def betweenness_centrality_parallel(G, processes=None):
-#     """Parallel betweenness centrality  function"""
-#     import pathos
+    # Whether to filter the genes on which we compute the word cloud (most important genes)
+    compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
+    distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+    all_partition_genes = {}
+    partition_genes = {}
+    t = tqdm(partition_genes_.items())
+    for i, genes in t:
+        t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
+        top_len = min(limit_anno_until, len(genes))
+        gene_scores = dict(
+            sorted(
+                compute_centrality(
+                    G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
+                ).items(), 
+                key=lambda x: x[1], reverse=True
+            )
+        )
+        # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
+        # displaying wordclouds (higher score - higher "frequency" or word size)
+        norm_gene_scores = dict(
+            zip(
+                gene_scores.keys(), list(map(lambda x: int(x), scale(list(gene_scores.values()), 1, 100)))
+            )
+        )
+        all_partition_genes[i] = norm_gene_scores
+        partition_genes[i] = {gene: norm_gene_scores[gene] for k, gene in enumerate(norm_gene_scores.keys()) if k < top_len}
+    print('Computed centrality scores for each gene in each community..')
+    
+    # Unfolding func frequency according to gene (func) score 
+    # (e.g a gene has score=2 -> the gene is represented twice)
+    partition_genes_unfolded = {
+        i: reduce(
+            lambda x, y: x + y, [[gene]*gene_score for gene, gene_score in gene_score_list.items()]
+        ) for i, gene_score_list in partition_genes.items()
+    }
 
-#     p = pathos.helpers.mp.Pool(processes=processes)
-#     node_divisor = len(p._pool) * 4
-#     node_chunks = list(chunks(G.nodes(), int(G.order() / node_divisor)))
-#     num_chunks = len(node_chunks)
-#     bt_sc = p.starmap(
-#         nx.betweenness_centrality_subset,
-#         zip(
-#             [G] * num_chunks,
-#             node_chunks,
-#             [list(G)] * num_chunks,
-#             [True] * num_chunks,
-#             [None] * num_chunks,
-#         ),
-#     )
+    # Getting aggregated functions per gene in each cluster
+    partition_funcs = {
+        i: reduce(
+            lambda x, y: x + ' ' + y, 
+            [
+                reduce(
+                    lambda x, y: x + ' ' + y, 
+                    gene_func[gene_func.index == gene].to_list(), 
+                    ''
+                ) for gene in gene_list
+            ],
+            ''  
+        ) for i, gene_list in partition_genes_unfolded.items()
+    }
 
-#     # Reduce the partial solutions
-#     bt_c = bt_sc[0]
-#     for bt in bt_sc[1:]:
-#         for n in bt:
-#             bt_c[n] += bt[n]
-#     return bt_c
+    
+    ###### PLOTTING GENE AND FUNC COMMUNITY CLOUDS ######
+    
+    # Getting positions of squeezed graph - we do not plot every gene on the figure
+    squeezed_G, squeezed_partition = squeeze_graph(G, partition)
+    print('Computed a squeezed graph representation..')
+    
+    squeezed_pos = netgraph_community_layout(squeezed_G, squeezed_partition, seed=seed)  # nx.nx_agraph.pygraphviz_layout(G.to_undirected(), prog="sfdp")  # nx.nx.spring_layout(G, seed=seed, k=0.2, iterations=20)
+    partition_coords = {}
+    for gene, coords in squeezed_pos.items():
+        if partition[gene] not in partition_coords:
+            partition_coords[partition[gene]] = [coords]
+        else:
+            partition_coords[partition[gene]] += [coords]
+    print('Computed node positions of the squeezed graph representation..')
+    
+    cmap = ListedColormap(sns.color_palette(cc.glasbey_bw, n_colors=num_partitions).as_hex())
+    
+    for plot_type in ['genes', 'funcs']:
+        
+        f, ax = plt.subplots(figsize=(25, 45))
+        
+        if plot_type == 'genes':
+            wordclouds = {
+                i: WordCloud(
+                    max_font_size=80, background_color='white', mask=get_elipsis_mask()
+                ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in partition_genes.items()
+            }
+        else:
+            word_counts = {i: WordCloud(stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
+            word_counts = {
+                i: (freqs if freqs else {'no': 1, 'found': 1, 'function': 1}) for i, freqs in word_counts.items()
+            }  # dealing with no word case
+            wordclouds = {
+                i: WordCloud(
+                    max_font_size=40, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+                ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
+            }
+            
+        # Plotting clouds
+        for i, coords in partition_coords.items():
+            x, y = zip(*coords)
+            min_x, max_x = min(x), max(x)
+            min_y, max_y = min(y), max(y)
+            ax.imshow(wordclouds[i], interpolation='bilinear', extent=[min_x, max_x, min_y, max_y])
+        print(f'Finished plotting {plot_type} word cloud..')
+        
+        nx.draw(squeezed_G, squeezed_pos, ax=ax, arrowstyle="->", arrowsize=20, 
+                connectionstyle=f'arc3, rad = 0.25', edge_color='k', width=0.4, 
+                node_color='k', node_size=50, alpha=0.01)
+        nx.draw_networkx_nodes(squeezed_G, squeezed_pos, ax=ax, node_size=100, 
+                               nodelist=list(squeezed_partition.keys()), 
+                               node_color=list(squeezed_partition.values()), 
+                               cmap=cmap, alpha=0.01)
+        print(f'Finished plotting {plot_type} nodes..')
 
+        ax.set_title(f'Found communities ({pat}, {dtype_title}, {data_title})', fontsize=30)
+        plt.axis('off')
 
-# def betweenness_centrality_parallel(G, processes=None):
-#     """Parallel betweenness centrality  function"""
-#     import pathos.multiprocessing as mp
-
-#     p = mp.ProcessingPool()
-#     node_divisor = processes * 12
-#     node_chunks = list(chunks(G.nodes(), int(G.order() / node_divisor)))
-#     num_chunks = len(node_chunks)
-#     bt_sc = p.map(
-#         nx.betweenness_centrality_subset,
-#         [G] * num_chunks,
-#         node_chunks,
-#         [list(G)] * num_chunks,
-#         [True] * num_chunks,
-#         [None] * num_chunks,
-#     )
-
-#     # Reduce the partial solutions
-#     bt_c = bt_sc[0]
-#     for bt in bt_sc[1:]:
-#         for n in bt:
-#             bt_c[n] += bt[n]
-#     return bt_c
-
+        if save_fig:
+            plt.savefig(os.path.join(_ALL_FIG_DIRS[pat], f"{pat}_{data}_{data_type}_communities_{plot_type}.png"), bbox_inches='tight', dpi=400)
+            
+    
+    ###### SAVING DATAFRAME CONTAINING INFORMATION ABOUT EACH COMMUNITY ######
+    
+    # Create a directory where the dataframe will be stored
+    save_to_folder = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{algo}_communities')
+    os.makedirs(save_to_folder, exist_ok=True)
+    
+    communities_df = pd.DataFrame(index=pd.DataFrame(range(num_partitions), name='community_i'), 
+                                  columns=['num_nodes', 'num_edges', 'all_genes', 'sorted_central_genes', 
+                                           'sorted_central_functions', 'sorted_central_gene_scores', 
+                                           'most_frequent_function_words']
+    )
+    
+    for i in range(num_partitions):
+        # Getting information for each community
+        genes = partition_genes_[i]
+        community_subgraph = G.subgraph(genes)
+        central_genes_and_scores = all_partition_genes[i]
+        central_functions = [', '.join(gene_func[gene_func.index == gene].to_list()) for gene in genes]
+        freq_words = partition_funcs[i]
+        
+        # Filling dataframe with the information
+        communities_df.loc[i, 'num_nodes'] = community_subgraph.number_of_nodes()
+        communities_df.loc[i, 'num_edges'] = community_subgraph.number_of_edges()
+        communities_df.loc[i, 'all_genes'] = '; '.join(genes)
+        communities_df.loc[i, 'sorted_central_genes'] = '; '.join(central_genes_and_scores.keys())
+        communities_df.loc[i, 'sorted_central_functions'] = '; '.join(central_functions)
+        communities_df.loc[i, 'sorted_central_gene_scores'] = '; '.join(
+            [f'{score}:.3f' for score in central_genes_and_scores.values()]
+        )
+        communities_df.loc[i, 'sorted_central_gene_scores'] = '; '.join(freq_words)
+        
+    communities_df.to_pickle(os.path.join(save_to_folder, f'{pat}_{data}_{data_type}_communities_info.pickle'))
+        
 
 def betweenness_centrality_parallel(G, processes=None):
     """Parallel betweenness centrality  function"""
     from multiprocessing import Pool
+    
+    def chunks(l, n):
+        """Divide a list of nodes `l` in `n` chunks"""
+        l_c = iter(l)
+        while 1:
+            x = tuple(itertools.islice(l_c, n))
+            if not x:
+                return
+            yield x
     
     p = Pool(processes=processes)
     node_divisor = len(p._pool) * 4
