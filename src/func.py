@@ -92,6 +92,30 @@ def load_gene_func_db(db, reload=False, as_series=False):
     Load data from gene function database like MSigDB, GO, DoRothEA, or etc. The output will be in a Pandas Dataframe format.
     """
     
+    def short_to_long_tag(db):
+        """
+        Transforming the short annotation db tag to long format.
+        """
+        if db == 'KEGG':
+            return 'MSigDB_curated_gene_sets_c2_cp_kegg'
+        elif db == 'hallmark':
+            return 'MSigDB_curated_gene_sets_c2_cp_kegg'
+        elif db == 'reactome':
+            return 'MSigDB_curated_gene_sets_c2_cp_reactome'
+        elif db == 'wikipathways':
+            return 'MSigDB_curated_gene_sets_c2_cp_wikipathways'
+        elif db == 'immunological':
+            return 'MSigDB_immunologic_signature_gene_sets_c7_all'
+        elif db == 'curated':
+            return 'MSigDB_curated_gene_sets_c2_all'
+        elif db == 'canonical':
+            return 'MSigDB_curated_gene_sets_c2_cp'
+        else:
+            raise NotImplementedError(f"The tag '{db}' not found in the downloaded databases..")
+       
+    # Getting the db tag
+    db = short_to_long_tag(db)            
+    
     # Dealing with path names
     db_path = load_gene_func_db_mapping()[db]
     db_folder = db_path[:db_path.rfind('/')]
@@ -866,7 +890,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True,
     return ax
 
            
-def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=True, limit_anno_until=50, 
+def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_anno_until=50, 
                         k=5000, save_top_intercommunity_links_until=20, other_functions_until=20, seed=42):
     """
     Process graph by finding its communities, annotate its communities, and save everything into .tsv format.
@@ -936,7 +960,8 @@ def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=T
     print('Finding high-centrality genes/functions in each cluster..')
     
     # Loading the gene functional annotation
-    gene_func = load_gene_func_db(anno_db, reload=False, as_series=True)
+    anno_db_tags = ['GO', 'KEGG', 'immunological', 'hallmark']
+    gene_func_dbs = {tag: load_gene_func_db(tag, as_series=True) for tag in anno_db_tags}
     
     # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
     partition_genes_ = {}
@@ -981,12 +1006,16 @@ def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=T
     # Computing functional annotation for each cluster as a concatenated list of annotations
     # Each annotation is weighted by its duplication gene_score times (e.g. a gene has score = 2 -> 
     # the functional annotation is duplicated and have bigger font in WordCloud)
+    # We also do it for different functional annotations like GO, KEGG, Hallmark, etc..
     partition_funcs = {
-        i: ' '.join(
-            chain.from_iterable([
-               gene_func[gene_func.index == gene].to_list()*gene_score 
-                    for gene, gene_score in gene_score_list.items()
-        ])) for i, gene_score_list in norm_partition_genes.items()
+        tag: 
+            {
+                i: ' '.join(
+                    chain.from_iterable([
+                       gene_func[gene_func.index == gene].to_list()*gene_score 
+                            for gene, gene_score in gene_score_list.items()
+                ])) for i, gene_score_list in norm_partition_genes.items()
+            } for tag, gene_func in gene_func_dbs.items()
     }
     
     print('Computed functional annotations for each cluster\n')
@@ -1011,7 +1040,11 @@ def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=T
     
     cmap = ListedColormap(sns.color_palette(cc.glasbey_bw, n_colors=num_partitions).as_hex())
     
-    for plot_type in ['genes', 'funcs']:
+    for plot_type in ['genes'] + list(map(lambda x: f"func_{x}", anno_db_tags)):
+    
+        if plot_type.startswith('func'):
+            # Getting current functional annotation
+            curr_partition_funcs = partition_funcs[plot_type[plot_type.find('_') + 1:]]
         
         f, ax = plt.subplots(figsize=(25, 45))
         
@@ -1022,7 +1055,9 @@ def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=T
                 ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in norm_partition_genes.items()
             }
         else:
-            word_counts = {i: WordCloud(stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
+            word_counts = {
+                i: WordCloud(stopwords=stopwords).process_text(text) for i, text in curr_partition_funcs.items()
+            }
             word_counts = {
                 i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
             }  # dealing with no word case
@@ -1048,15 +1083,13 @@ def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=T
                                node_color=list(squeezed_partition.values()), 
                                cmap=cmap, alpha=0.01)
         print(f'Finished plotting {plot_type} nodes..')
-        
-        anno_tag = f'{plot_type}{f"_{anno_db}" if plot_type == "funcs" else ""}'
 
         ax.set_title(f'Found communities ({pat}, {dtype_title}, {data_title}), '
-                     f'annotation - {anno_tag}', 
+                     f'annotation - {plot_type}', 
                      fontsize=30)
         plt.axis('off')
 
-        plt.savefig(os.path.join(_ALL_FIG_DIRS[pat], f"{pat}_{data}_all_communities_{anno_tag}.png"), bbox_inches='tight', dpi=400)
+        plt.savefig(os.path.join(_ALL_FIG_DIRS[pat], f"{pat}_{data}_all_communities_{plot_type}.png"), bbox_inches='tight', dpi=400)
             
     print('Finished plotting..\n')
             
@@ -1069,18 +1102,20 @@ def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=T
     save_to_folder = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{algo}_communities')
     os.makedirs(save_to_folder, exist_ok=True)
     
-    communaities_df = pd.DataFrame(index=pd.Series(range(num_partitions), name='community_i'), 
-                                  columns=['num_nodes', 'num_edges', 'all_genes', 'sorted_central_genes', 
-                                           'sorted_central_functions', 'sorted_central_gene_scores', 
-                                           'most_frequent_function_words']
-    )
-    
     communities_df = pd.DataFrame(
         index=pd.Series(range(num_partitions), name='community_i'), 
         columns=[
-            'num_nodes', 'num_edges', 'main_functions', 'sorted_central_genes', 'sorted_central_functions', 
-            'sorted_central_gene_scores', 'most_frequent_function_words', 'non_lambert_2018_TF_central_genes', 
-            'non_dorothea_TF_central_genes', 'all_sorted_genes', 'other_functions', 'genes_with_other_functions',
+            'num_nodes', 'num_edges',
+            'main_functions_GO', 'main_functions_KEGG', 'main_functions_immunological', 'main_functions_hallmark', 
+            'sorted_central_genes', 'sorted_central_gene_scores'
+            'sorted_central_functions_GO', 'sorted_central_functions_KEGG', 'sorted_central_functions_immunological', 'sorted_central_functions_hallmark', 
+            'most_frequent_function_words_GO', 'most_frequent_function_words_KEGG', 'most_frequent_function_words_immunological', 'most_frequent_function_words_hallmark',
+            'non_lambert_2018_TF_central_genes', 'non_dorothea_TF_central_genes', 
+            'other_functions_GO', 'genes_with_other_functions_GO',
+            'other_functions_KEGG', 'genes_with_other_functions_KEGG',
+            'other_functions_immunological', 'genes_with_other_functions_immunological',
+            'other_functions_hallmark', 'genes_with_other_functions_hallmark',
+            'all_sorted_genes',
             'new_gene_gene_links_KEGG', 'new_gene_gene_links_hallmark', 'new_gene_gene_links_immunological',
             'whole_G_central_genes', 'whole_G_central_gene_scores'] + 
             [f'top_{n}_between_central_genes_and_community_{i}' for i in range(num_partitions) for n in ['links', 'link_scores']] + 
@@ -1097,50 +1132,59 @@ def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=T
         # Setting tqdm logs
         t.set_description(f'Saving info about {i} cluster, size={community_subgraph.order()}')
         
+        # Getting information about cluster genes
         central_genes_and_scores = {
             gene: all_partition_genes[i][gene] for k, gene in enumerate(genes) if k < top_len
         }
-        central_functions = list(dict.fromkeys([  # dropping duplicates, but preserving order
-            func for gene in central_genes_and_scores.keys() 
-                for func in gene_func[gene_func.index == gene].to_list()
-        ]))
-        central_functions_per_gene = [
-            ' & '.join(gene_func[gene_func.index == gene].to_list()) for gene in central_genes_and_scores.keys()
-        ]
-                
-        freq_words = WordCloud(stopwords=stopwords).process_text(partition_funcs[i])
-        freq_words = dict(
-            sorted(freq_words.items(), key=lambda x: x[1], reverse=True)
-        ) if freq_words else {'no found function': 1}  # dealing with no word case
                 
         non_lambert_TFs = [gene for gene in central_genes_and_scores.keys() if gene not in lambert_TF_names]
         non_dorothea_TFs = [gene for gene in central_genes_and_scores.keys() if gene not in dorothea_TF_names]
-        
-        other_functions = list(dict.fromkeys([  # dropping duplicates, but preserving order
-            func for gene in genes if gene not in central_genes_and_scores.keys() 
-                for func in gene_func[gene_func.index == gene].to_list() if func not in central_functions
-        ]))[:other_functions_until]
-        genes_with_other_functions = [
-            ' & '.join(gene_func[gene_func == func].index.to_list()) for func in other_functions
-        ]
 
         # Filling dataframe with the information
         communities_df.loc[i, 'num_nodes'] = community_subgraph.number_of_nodes()
         communities_df.loc[i, 'num_edges'] = community_subgraph.number_of_edges()
         communities_df.loc[i, 'all_sorted_genes'] = '; '.join(genes)
-        communities_df.loc[i, 'main_functions'] = '; '.join(central_functions)
         communities_df.loc[i, 'sorted_central_genes'] = '; '.join(central_genes_and_scores.keys())
-        communities_df.loc[i, 'sorted_central_functions'] = '; '.join(central_functions_per_gene)
         communities_df.loc[i, 'sorted_central_gene_scores'] = '; '.join(
             [f'{score:.2f}' for score in central_genes_and_scores.values()]
         )
-        communities_df.loc[i, 'most_frequent_function_words'] = '; '.join(freq_words.keys())
         communities_df.loc[i, 'non_lambert_2018_TF_central_genes'] = '; '.join(non_lambert_TFs)
         communities_df.loc[i, 'non_dorothea_TF_central_genes'] = '; '.join(non_dorothea_TFs)
-        communities_df.loc[i, 'other_functions'] = '; '.join(other_functions)
-        communities_df.loc[i, 'genes_with_other_functions'] = '; '.join(genes_with_other_functions)
         communities_df.loc[i, 'whole_G_central_genes'] = '; '.join(whole_G_central_genes.keys())
         communities_df.loc[i, 'whole_G_central_gene_scores'] = '; '.join([f'{score:.2f}' for score in whole_G_central_genes.values()])
+        
+        # Getting information about cluster functions
+        for tag, gene_func in gene_func_dbs.items():
+        
+            curr_partition_funcs = partition_funcs[tag]
+            
+            central_functions = list(dict.fromkeys([  # dropping duplicates, but preserving order
+                func for gene in central_genes_and_scores.keys() 
+                    for func in gene_func[gene_func.index == gene].to_list()
+            ]))
+            central_functions_per_gene = [
+                ' & '.join(gene_func[gene_func.index == gene].to_list()) for gene in central_genes_and_scores.keys()
+            ]
+
+            freq_words = WordCloud(stopwords=stopwords).process_text(curr_partition_funcs[i])
+            freq_words = dict(
+                sorted(freq_words.items(), key=lambda x: x[1], reverse=True)
+            ) if freq_words else {'no found function': 1}  # dealing with no word case
+
+            other_functions = list(dict.fromkeys([  # dropping duplicates, but preserving order
+                func for gene in genes if gene not in central_genes_and_scores.keys() 
+                    for func in gene_func[gene_func.index == gene].to_list() if func not in central_functions
+            ]))[:other_functions_until]
+            genes_with_other_functions = [
+                ' & '.join(gene_func[gene_func == func].index.to_list()) for func in other_functions
+            ]
+            
+            # Filling dataframe with the information
+            communities_df.loc[i, f'main_functions_{tag}'] = '; '.join(central_functions)
+            communities_df.loc[i, f'sorted_central_functions_{tag}'] = '; '.join(central_functions_per_gene)
+            communities_df.loc[i, f'most_frequent_function_words_{tag}'] = '; '.join(freq_words.keys())
+            communities_df.loc[i, f'other_functions_{tag}'] = '; '.join(other_functions)
+            communities_df.loc[i, f'genes_with_other_functions_{tag}'] = '; '.join(genes_with_other_functions)
 
         # Filling information about top inter-community links
         t_sub = tqdm_cli(range(num_partitions), ascii=True, leave=False)
