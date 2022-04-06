@@ -29,6 +29,7 @@ from termcolor import colored  # colored text output
 
 from sklearn.preprocessing import MinMaxScaler
 
+
 scale = lambda x, min_y, max_y: list(MinMaxScaler(feature_range=(min_y, max_y)).fit_transform(np.expand_dims(np.array(x), axis=1))[:, 0])
 stopwords = STOPWORDS.union({'regulation', 'activity', 'positive', 'negative', 
                                  'catabolic', 'process', 'protein', 'complex', 
@@ -62,7 +63,122 @@ def load_pickle(fn):
         
     return f
 
+
+def load_gene_func_db_mapping():
+    """
+    Load downloaded gene function databases like MSigDB, GO, SIGNOR, etc mappings.
+    """
     
+    path_to_dbs = '/gpfs/projects/bsc08/bsc08890/data/Gene_func_associations'    
+
+    file_mapping = {
+        'GO': os.path.join(path_to_dbs, 'GO_annotation.tsv'),
+        'DoRothEA': os.path.join(path_to_dbs, 'dorothea_regulons.tsv'),
+        'MSigDB_hallmark_gene_sets_h': os.path.join(path_to_dbs, 'MSigDB', 'h.all.v7.5.1.symbols.gmt.txt'),
+        'MSigDB_curated_gene_sets_c2_all': os.path.join(path_to_dbs, 'MSigDB', 'c2.all.v7.5.1.symbols.gmt.txt'), 
+        'MSigDB_curated_gene_sets_c2_cp': os.path.join(path_to_dbs, 'MSigDB', 'c2.cp.v7.5.1.symbols.gmt.txt'),
+        'MSigDB_curated_gene_sets_c2_cp_kegg': os.path.join(path_to_dbs, 'MSigDB', 'c2.cp.kegg.v7.5.1.symbols.gmt.txt'),
+        'MSigDB_curated_gene_sets_c2_cp_reactome': os.path.join(path_to_dbs, 'MSigDB', 'c2.cp.reactome.v7.5.1.symbols.gmt.txt'),
+        'MSigDB_curated_gene_sets_c2_cp_wikipathways': os.path.join(path_to_dbs, 'MSigDB', 'c2.cp.wikipathways.v7.5.1.symbols.gmt.txt'),
+        'MSigDB_regulatory_target_gene_sets_c3_all': os.path.join(path_to_dbs, 'MSigDB', 'c3.all.v7.5.1.symbols.gmt.txt'),
+        'MSigDB_immunologic_signature_gene_sets_c7_all': os.path.join(path_to_dbs, 'MSigDB', 'c7.all.v7.5.1.symbols.gmt.txt')
+    }
+
+    return file_mapping
+
+
+def load_gene_func_db(db, reload=False, as_series=False):
+    """
+    Load data from gene function database like MSigDB, GO, DoRothEA, or etc. The output will be in a Pandas Dataframe format.
+    """
+    
+    # Dealing with path names
+    db_path = load_gene_func_db_mapping()[db]
+    db_folder = db_path[:db_path.rfind('/')]
+    
+    if db.startswith('MSigDB'):
+        
+        if reload:
+    
+            # Loading saved data from https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp
+            with open(db_path, 'r') as f:
+                entries = [f_line.strip().split('\t') for f_line in f.readlines()]
+
+            # Converting data to pandas format
+            entries_df = pd.DataFrame(columns=['ID', 'link', 'genes'])
+
+            for i, entry in enumerate(entries):
+                entries_df.loc[i, 'ID'] = entry[0]
+                entries_df.loc[i, 'link'] = entry[1]
+                entries_df.loc[i, 'genes'] = entry[2:]
+                
+            # Adding some information about each functional group by scraping from the web
+            for i, row in tqdm_cli(entries_df.iterrows(), leave=False, total=entries_df.shape[0], ascii=True):
+                brief, full = pd.read_html(
+                    row['link']
+                )[1].loc[
+                    lambda x: x[0].isin(['Brief description', 'Full description or abstract'])
+                ][1].values
+                
+                entries_df.loc[i, 'brief_desc'] = brief
+                entries_df.loc[i, 'full_desc'] = full
+                
+            # Transforming data to format when gene is the index
+            per_gene_entries_df = pd.DataFrame(columns=['gene_name', 'ID', 'link', 'brief_desc', 'full_desc'])
+            for i, row in entries_df.iterrows():
+                num_genes = len(row['genes'])
+                row_df = pd.DataFrame(
+                    dict(
+                        gene_name=row['genes'], ID=[row['ID']]*num_genes, link=[row['link']]*num_genes,
+                        brief_desc=[row['brief_desc']]*num_genes, full_desc=[row['full_desc']]*num_genes
+                    )
+                )
+                per_gene_entries_df = pd.concat([per_gene_entries_df, row_df], axis=0)
+
+            out = per_gene_entries_df.set_index('gene_name')
+            out.to_csv(os.path.join(db_folder, f'{db}.tsv'), sep='\t')
+            
+        else:
+            
+            # Reading previously saved data
+            out = pd.read_csv(os.path.join(db_folder, f'{db}.tsv'), sep='\t', index_col=0)
+            
+        if as_series:
+            out = out['brief_desc']
+        
+    elif db == 'GO':
+        
+        # Loading gene GO description - it was downloaded using ENSEMBL BioMart
+        entries_df = pd.read_csv(db_path, sep='\t', index_col=0) \
+            .drop(columns=['GO term evidence code']) \
+            .dropna(subset=['Gene name', 'GO term name', 'GO domain']) \
+            .drop_duplicates()
+        entries_df = entries_df.rename(
+            columns={
+                'Gene name': 'gene_name', 'GO term accession': 'ID', 'GO term name': 'brief_desc',
+                'GO term definition': 'full_desc', 'GO domain': 'domain'
+            }
+        )
+        
+        out = entries_df.set_index('gene_name')
+        
+        if as_series:
+            out = out[
+                (out['domain'] == 'molecular_function') | (out['domain'] == 'biological_process')
+            ]['brief_desc']
+        
+    elif db == 'DoRothEA':
+        
+        # Loading DoRothEA database of TF-target gene associations
+        out = pd.read_csv(db_path, sep='\t')
+        
+    else:
+        
+        raise NotImplementedError
+        
+    return out
+
+
 def fancy_draw_network_edge_labels(
     G,
     pos,
@@ -627,17 +743,15 @@ def get_elipsis_mask():
         return mask
 
 
-def plot_cloud(G, partition, squeezed_pos, ax, GO_anno, filter_genes=True, 
+def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True, 
                limit_anno_until=50, display_func=False, if_betweenness=True, 
                k=3000): 
     """
     Plot word cloud that indicates the function(s) of each gene cluster.
     """
     
-    # Keeping only relevant annotation
-    gene_func = GO_anno[
-        (GO_anno['GO domain'] == 'molecular_function') | (GO_anno['GO domain'] == 'biological_process')
-    ]['GO term name']
+    # Loading the gene functional annotation
+    gene_func = load_gene_func_db(anno_db, reload=False, as_series=True)
     
     # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
     partition_genes_ = {}
@@ -752,8 +866,8 @@ def plot_cloud(G, partition, squeezed_pos, ax, GO_anno, filter_genes=True,
     return ax
 
            
-def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_anno_until=50, k=5000, 
-                        save_top_intercommunity_links_until=20, seed=42):
+def process_communities(pat, data, algo='leiden', anno_db='GO', if_betweenness=True, limit_anno_until=50, 
+                        k=5000, save_top_intercommunity_links_until=20, other_functions_until=20, seed=42):
     """
     Process graph by finding its communities, annotate its communities, and save everything into .tsv format.
     """
@@ -821,14 +935,8 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
     
     print('Finding high-centrality genes/functions in each cluster..')
     
-    # Loading gene GO description - it was downloaded using ENSEMBL BioMart
-    GO_anno = pd.read_csv(os.path.join(_PROJ_PATH, 'data/GO_annotation.tsv'), sep='\t', index_col=0) \
-        .drop(columns=['GO term evidence code']).dropna().drop_duplicates().set_index('Gene name')
-    
-    # Keeping only relevant annotation
-    gene_func = GO_anno[
-        (GO_anno['GO domain'] == 'molecular_function') | (GO_anno['GO domain'] == 'biological_process')
-    ]['GO term name']
+    # Loading the gene functional annotation
+    gene_func = load_gene_func_db(anno_db, reload=False, as_series=True)
     
     # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
     partition_genes_ = {}
@@ -940,11 +1048,15 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
                                node_color=list(squeezed_partition.values()), 
                                cmap=cmap, alpha=0.01)
         print(f'Finished plotting {plot_type} nodes..')
+        
+        anno_tag = f'{plot_type}{f"_{anno_db}" if plot_type == "funcs" else ""}'
 
-        ax.set_title(f'Found communities ({pat}, {dtype_title}, {data_title})', fontsize=30)
+        ax.set_title(f'Found communities ({pat}, {dtype_title}, {data_title}), '
+                     f'annotation - {anno_tag}', 
+                     fontsize=30)
         plt.axis('off')
 
-        plt.savefig(os.path.join(_ALL_FIG_DIRS[pat], f"{pat}_{data}_all_communities_{plot_type}.png"), bbox_inches='tight', dpi=400)
+        plt.savefig(os.path.join(_ALL_FIG_DIRS[pat], f"{pat}_{data}_all_communities_{anno_tag}.png"), bbox_inches='tight', dpi=400)
             
     print('Finished plotting..\n')
             
@@ -966,23 +1078,16 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
     communities_df = pd.DataFrame(
         index=pd.Series(range(num_partitions), name='community_i'), 
         columns=[
-            'num_nodes', 'num_edges', 'sorted_central_genes', 'sorted_central_functions', 
+            'num_nodes', 'num_edges', 'main_functions', 'sorted_central_genes', 'sorted_central_functions', 
             'sorted_central_gene_scores', 'most_frequent_function_words', 'non_lambert_2018_TF_central_genes', 
             'non_dorothea_TF_central_genes', 'all_sorted_genes', 'other_functions', 'genes_with_other_functions',
+            'new_gene_gene_links_KEGG', 'new_gene_gene_links_hallmark', 'new_gene_gene_links_immunological',
             'whole_G_central_genes', 'whole_G_central_gene_scores'] + 
             [f'top_{n}_between_central_genes_and_community_{i}' for i in range(num_partitions) for n in ['links', 'link_scores']] + 
             [f'top_{n}_with_community_{i}' for i in range(num_partitions) for n in ['links', 'link_scores']]
     )
     
     t = tqdm_cli(range(num_partitions), ascii=True)
-    
-    import time
-    time_dict = {'central_genes_and_scores': [],
-                 'central_functions': [],
-                 'central_functions_per_gene': [],
-                 'freq_words': [],
-                 'other_functions': [],
-                 'genes_with_other_functions': []}
 
     for i in t:
         # Getting information for each community
@@ -1014,7 +1119,7 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
         other_functions = list(dict.fromkeys([  # dropping duplicates, but preserving order
             func for gene in genes if gene not in central_genes_and_scores.keys() 
                 for func in gene_func[gene_func.index == gene].to_list() if func not in central_functions
-        ]))
+        ]))[:other_functions_until]
         genes_with_other_functions = [
             ' & '.join(gene_func[gene_func == func].index.to_list()) for func in other_functions
         ]
@@ -1023,6 +1128,7 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
         communities_df.loc[i, 'num_nodes'] = community_subgraph.number_of_nodes()
         communities_df.loc[i, 'num_edges'] = community_subgraph.number_of_edges()
         communities_df.loc[i, 'all_sorted_genes'] = '; '.join(genes)
+        communities_df.loc[i, 'main_functions'] = '; '.join(central_functions)
         communities_df.loc[i, 'sorted_central_genes'] = '; '.join(central_genes_and_scores.keys())
         communities_df.loc[i, 'sorted_central_functions'] = '; '.join(central_functions_per_gene)
         communities_df.loc[i, 'sorted_central_gene_scores'] = '; '.join(
