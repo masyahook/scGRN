@@ -31,9 +31,10 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 scale = lambda x, min_y, max_y: list(MinMaxScaler(feature_range=(min_y, max_y)).fit_transform(np.expand_dims(np.array(x), axis=1))[:, 0])
-stopwords = STOPWORDS.union({'regulation', 'activity', 'positive', 'negative', 
-                                 'catabolic', 'process', 'protein', 'complex', 
-                                 'binding', 'response'})
+stopwords = STOPWORDS.union({
+    'regulation', 'activity', 'positive', 'negative', 'catabolic', 'process', 'protein', 'complex', 
+    'binding', 'response', 'gene', 'genes', 'encoding', 'defining', 'GeneID', 'regulated',
+})
 
 def save_pickle(f, fn):
     """
@@ -833,13 +834,13 @@ def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True,
         }
 
         # Generating word counts from aggregated gene annotation texts -> obtaining main (most frequent) function tokens
-        word_counts = {i: WordCloud(stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
+        word_counts = {i: WordCloud(max_words=50, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
         word_counts = {
             i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
         }  # dealing with no word case
         wordclouds = {
             i: WordCloud(
-                max_font_size=40, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+                max_words=50, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
             ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
         }
         
@@ -873,7 +874,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True,
         
         wordclouds = {
             i: WordCloud(
-                max_font_size=80, background_color='white', mask=get_elipsis_mask()
+                max_words=50, min_font_size=15, background_color='white', mask=get_elipsis_mask()
             ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in partition_genes.items()
         }
         
@@ -1056,19 +1057,19 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
         if plot_type == 'genes':
             wordclouds = {
                 i: WordCloud(
-                    max_font_size=80, background_color='white', mask=get_elipsis_mask()
+                    max_words=50, min_font_size=15, background_color='white', mask=get_elipsis_mask()
                 ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in norm_partition_genes.items()
             }
         else:
             word_counts = {
-                i: WordCloud(stopwords=stopwords).process_text(text) for i, text in curr_partition_funcs.items()
+                i: WordCloud(max_words=50, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in curr_partition_funcs.items()
             }
             word_counts = {
                 i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
             }  # dealing with no word case
             wordclouds = {
                 i: WordCloud(
-                    max_font_size=40, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+                    max_words=50, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
                 ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
             }
             
@@ -1203,7 +1204,7 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
                 ' & '.join(gene_func[gene_func.index == gene].to_list()) for gene in central_genes_and_scores.keys()
             ]
 
-            freq_words = WordCloud(stopwords=stopwords).process_text(curr_partition_funcs[i])
+            freq_words = WordCloud(max_words=50, min_font_size=15, stopwords=stopwords).process_text(curr_partition_funcs[i])
             freq_words = dict(
                 sorted(freq_words.items(), key=lambda x: x[1], reverse=True)
             ) if freq_words else {'no found function': 1}  # dealing with no word case
@@ -1276,10 +1277,6 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
                     '; '.join([f'{st}->{end}' for st, end, _ in links_i_k])
                 communities_df.loc[i, f'top_link_scores_with_community_{k}'] = \
                     '; '.join([f'{score:.2f}' for _, _, score in links_i_k])
-    
-    
-    for k, arr in time_dict.items():
-        print(f"Computing '{k}' takes around {np.mean(arr):.4f} seconds..")
     
     # Saving dataframe
     communities_df.to_pickle(os.path.join(save_to_folder, f'{pat}_{data}_all_communities_info.pickle'))
