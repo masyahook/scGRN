@@ -23,6 +23,8 @@ if __name__ == '__main__':
     parser.add_argument('-la', '--limit_anno_until', type=int, default=50, help='The upper limit of genes that we will base the cluster annotation on')
     parser.add_argument('-k', '--k_centrality', type=int, default=5000, help='The upper number of nodes to compute the centrality on - approximates the centrality and speeds up the process')
     parser.add_argument('-il', '--top_intercom_links', type=int, default=20, help='The number of inter-community links to store in the output info dataframe')
+    parser.add_argument('-of', '--other_functions_until', type=int, default=20, help='The number of other functions to include in the final dataframe.')
+    parser.add_argument('-nl', '--save_top_new_found_cluster_links', type=int, default=20, help='The number of newly found gene interactions in each functional cluster to save to final dataframe.')
     parser.add_argument('-s', '--seed', type=int, default=42, help='The random seed to use')
     args = parser.parse_args()
     
@@ -31,6 +33,8 @@ if __name__ == '__main__':
         pat=args.patient, data=args.data, algo=args.algo, if_betweenness=args.if_betweenness, 
         limit_anno_until=args.limit_anno_until, k=args.k_centrality, 
         save_top_intercommunity_links_until=args.top_intercom_links, 
+        other_functions_until=args.other_functions_until,
+        save_top_new_found_cluster_links=args.save_top_new_found_cluster_links,
         seed=args.seed
     )
     

@@ -96,10 +96,14 @@ def load_gene_func_db(db, reload=False, as_series=False):
         """
         Transforming the short annotation db tag to long format.
         """
-        if db == 'KEGG':
+        if db == 'GO':
+            return 'GO'
+        elif db == 'DoRothEA':
+            return 'DoRothEA'
+        elif db == 'KEGG':
             return 'MSigDB_curated_gene_sets_c2_cp_kegg'
         elif db == 'hallmark':
-            return 'MSigDB_curated_gene_sets_c2_cp_kegg'
+            return 'MSigDB_hallmark_gene_sets_h'
         elif db == 'reactome':
             return 'MSigDB_curated_gene_sets_c2_cp_reactome'
         elif db == 'wikipathways':
@@ -891,7 +895,8 @@ def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True,
 
            
 def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_anno_until=50, 
-                        k=5000, save_top_intercommunity_links_until=20, other_functions_until=20, seed=42):
+                        k=5000, save_top_intercommunity_links_until=20, other_functions_until=20, 
+                        save_top_new_found_cluster_links=20, seed=42):
     """
     Process graph by finding its communities, annotate its communities, and save everything into .tsv format.
     """
@@ -1116,7 +1121,7 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
             'other_functions_immunological', 'genes_with_other_functions_immunological',
             'other_functions_hallmark', 'genes_with_other_functions_hallmark',
             'all_sorted_genes',
-            'new_gene_gene_links_KEGG', 'new_gene_gene_links_hallmark', 'new_gene_gene_links_immunological',
+            'new_gene_gene_links_KEGG', 'new_gene_gene_links_hallmark',
             'whole_G_central_genes', 'whole_G_central_gene_scores'] + 
             [f'top_{n}_between_central_genes_and_community_{i}' for i in range(num_partitions) for n in ['links', 'link_scores']] + 
             [f'top_{n}_with_community_{i}' for i in range(num_partitions) for n in ['links', 'link_scores']]
@@ -1151,9 +1156,41 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
         communities_df.loc[i, 'non_lambert_2018_TF_central_genes'] = '; '.join(non_lambert_TFs)
         communities_df.loc[i, 'non_dorothea_TF_central_genes'] = '; '.join(non_dorothea_TFs)
         communities_df.loc[i, 'whole_G_central_genes'] = '; '.join(whole_G_central_genes.keys())
-        communities_df.loc[i, 'whole_G_central_gene_scores'] = '; '.join([f'{score:.2f}' for score in whole_G_central_genes.values()])
+        communities_df.loc[i, 'whole_G_central_gene_scores'] = '; '.join(
+            [f'{score:.2f}' for score in whole_G_central_genes.values()]
+        )
         
-        # Getting information about cluster functions
+        # Filling information about newly found gene-gene links (based on absence in KEGG and Hallmark)
+        top_cluster_links = set()
+        
+        iter_i = 0
+        
+        for st, end, edge_info in sorted(community_subgraph.edges(data=True), 
+                                         key=lambda t: t[2]['importance'], 
+                                         reverse=True):
+            
+            # If the current (reverse directed) link was not encountered previously..
+            if (end, st) not in [(uniq_st, uniq_end) for uniq_st, uniq_end, _ in top_cluster_links]:
+                top_cluster_links.add((st, end, edge_info['importance']))
+                iter_i += 1
+            if iter_i == save_top_new_found_cluster_links:
+                break
+                
+        for anno_tag in ['KEGG', 'hallmark']:
+            
+            curr_db = load_gene_func_db(anno_tag)
+            tmp_list = []
+            
+            # if `st` gene and `end` gene have non-overlapping annotations..
+            for st, end, imp in top_cluster_links:
+                st_anno_IDs = set(curr_db[curr_db.index == st]['ID'])
+                end_anno_IDs = set(curr_db[curr_db.index == end]['ID'])
+                if len(st_anno_IDs.intersection(end_anno_IDs)) == 0:
+                    tmp_list.append(f"{st} ({' & '.join(st_anno_IDs)}) <-> {end} ({' & '.join(end_anno_IDs)})")
+                    
+            communities_df.loc[i, f'new_gene_gene_links_{anno_tag}'] = '; '.join(tmp_list)
+        
+        # Filling information about cluster functions
         for tag, gene_func in gene_func_dbs.items():
         
             curr_partition_funcs = partition_funcs[tag]
