@@ -65,6 +65,68 @@ def load_pickle(fn):
     return f
 
 
+def post_process_adj_list(fn, q_thresh):
+    """
+    Post-process the adjacency list that is produced by GRN algorithm and save everything to pickle format.
+    """
+
+    # Defining file and path names 
+    curr_dir = os.path.dirname(fn)
+    fn = fn[fn.rfind('/') + 1:]
+    short_fn = fn.replace('.tsv', '')
+    os.chdir(curr_dir)
+    os.makedirs('pickle', exist_ok=True)
+    os.makedirs('nx_graph', exist_ok=True)
+    
+    ####### 1st step #######
+    # Process ctx-format file
+    if 'ctx' in fn:
+        df = pd.read_csv(fn, sep='\t', index_col=[0, 1], header=[0, 1], skipinitialspace=True)
+        all_df = pd.read_csv(os.path.join(curr_dir, fn.replace('ctx', 'cor')), sep='\t')
+        
+        df[('Enrichment', 'Context')] = df[('Enrichment', 'Context')].apply(lambda s: eval(s))
+        df[('Enrichment', 'TargetGenes')] = df[('Enrichment', 'TargetGenes')].apply(lambda s: eval(s))
+
+        tf_target_dict = {'TF': [], 'target': [], 'importance': []}
+        tf_target_info = (
+            df.droplevel(axis=0, level=1).droplevel(axis=1, level=0)['TargetGenes']
+              .map(set)  # transform each list into set
+              .groupby('TF').agg(lambda x: reduce(lambda a, b: a.union(b), x))  # combine all targets per TF
+        )
+        for tf, target_info in tf_target_info.iteritems():
+            tf_target_dict['TF'] += [tf for target_name, score in target_info]
+            tf_target_dict['target'] += [target_name for target_name, score in target_info]
+            tf_target_dict['importance'] += [score for target_name, score in target_info]
+
+        out_df = pd.DataFrame(tf_target_dict).merge(all_df, how='left')
+    else:
+        out_df = pd.read_csv(fn, sep='\t')
+    
+    # Saving
+    out_df.to_pickle(f'pickle/{short_fn}.pickle')
+    
+    ####### 2nd step #######
+    adj_list = out_df
+    adj_list['distance'] = 1 / adj_list['importance']
+    
+    # Filtering
+    q_thresh_suffix = str(q_thresh).replace(".", "_")
+    thresh = adj_list['importance'].quantile(q_thresh)
+    filtered_adj_list = adj_list.loc[lambda x: x.importance > thresh]
+    
+    # Saving
+    filtered_adj_list.to_pickle(f'pickle/{short_fn}_filtered_{q_thresh_suffix}.pickle')
+    
+    ####### 3rd step #######
+    # Creating graphs
+    graph = nx.from_pandas_edgelist(adj_list, 'TF', 'target', ['importance', 'rho', 'distance'], create_using=nx.DiGraph)
+    filtered_graph = nx.from_pandas_edgelist(filtered_adj_list, 'TF', 'target', ['importance', 'rho', 'distance'], create_using=nx.DiGraph)
+    
+    # Saving
+    nx.write_gpickle(graph, f'nx_graph/{short_fn}.gpickle')
+    nx.write_gpickle(filtered_graph, f'nx_graph/{short_fn}_filtered_{q_thresh_suffix}.gpickle')
+    
+
 def load_gene_func_db_mapping():
     """
     Load downloaded gene function databases like MSigDB, GO, SIGNOR, etc mappings.
@@ -566,18 +628,58 @@ def style_data_availability(df):
     return df.style.apply(lambda x: ["background-color: green" if v == '+' else "background-color: red" if v == '-' else 'background: white' for v in x], axis=1)
 
 
-def get_adj_list(pat, data, data_type, method='grnboost2', is_filter=False):
-    _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=None):
+    """
+    Load adjacency list from patient-specific data, or from cell type aggregated data.
+    """
+    
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
-    filter_suffix = '' if not is_filter else '_filtered'
-    return pd.read_pickle(os.path.join(_DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}{filter_suffix}.pickle'))
+    filter_suffix = f"_filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
+    
+    if pat is None:
+        
+        # Loading cell-type aggregated data
+        _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
+        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        
+        return pd.read_pickle(os.path.join(
+            _DATA_HOME, data_folder, 'data', method, 'pickle', f'all_raw_data_{data_suffix}{filter_suffix}.pickle'
+        ))
+        
+    else:
+        
+        # Loading patient-specific data
+        _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+        return pd.read_pickle(os.path.join(
+            _DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}{filter_suffix}.pickle'
+        ))
 
 
-def get_nx_graph(pat, data, data_type, method='grnboost2', is_filter=False):
-    _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=None):
+    """
+    Load networkx graph from patient-specific data, or from cell type aggregated data.
+    """
+    
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
-    filter_suffix = '' if not is_filter else '_filtered'
-    return nx.read_gpickle(os.path.join(_DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}{filter_suffix}.gpickle'))
+    filter_suffix = f"_filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
+    
+    if pat is None:
+        
+        # Loading cell-type aggregated data
+        _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
+        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        
+        return nx.read_gpickle(os.path.join(
+            _DATA_HOME, data, 'data', method, 'nx_graph', f'all_raw_data_{data_suffix}{filter_suffix}.gpickle'
+        ))
+
+    else:
+    
+        # Loading patient-specific data
+        _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+        return nx.read_gpickle(os.path.join(
+            _DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}{filter_suffix}.gpickle'
+        ))
 
 
 def netgraph_community_layout(G, node_to_community, community_scale=1., node_scale=2., seed=42):
@@ -834,13 +936,13 @@ def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True,
         }
 
         # Generating word counts from aggregated gene annotation texts -> obtaining main (most frequent) function tokens
-        word_counts = {i: WordCloud(max_words=50, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
+        word_counts = {i: WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
         word_counts = {
             i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
         }  # dealing with no word case
         wordclouds = {
             i: WordCloud(
-                max_words=50, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+                max_words=30, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
             ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
         }
         
@@ -874,7 +976,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True,
         
         wordclouds = {
             i: WordCloud(
-                max_words=50, min_font_size=15, background_color='white', mask=get_elipsis_mask()
+                max_words=30, min_font_size=15, background_color='white', mask=get_elipsis_mask()
             ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in partition_genes.items()
         }
         
@@ -895,7 +997,7 @@ def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True,
     return ax
 
            
-def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_anno_until=50, 
+def process_communities(pat, data, algo='leiden', filter_quantile=0.95, if_betweenness=True, limit_anno_until=50, 
                         k=5000, save_top_intercommunity_links_until=20, other_functions_until=20, 
                         save_top_new_found_cluster_links=20, seed=42):
     """
@@ -930,7 +1032,7 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
     )
     
     # Loading the graph
-    G = get_nx_graph(pat, data, 'all', is_filter=True)
+    G = get_nx_graph(pat, data, 'all', get_filtered=filter_quantile)
     print(f"Loaded the graph: {colored('pat', 'green')}='{colored(pat, 'red')}', "
           f"{colored('data', 'green')}='{colored(data, 'red')}', "
           f"{colored('data_type', 'green')}='{colored('all', 'red')}'\n")
@@ -1057,19 +1159,19 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
         if plot_type == 'genes':
             wordclouds = {
                 i: WordCloud(
-                    max_words=50, min_font_size=15, background_color='white', mask=get_elipsis_mask()
+                    max_words=30, min_font_size=15, background_color='white', mask=get_elipsis_mask()
                 ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in norm_partition_genes.items()
             }
         else:
             word_counts = {
-                i: WordCloud(max_words=50, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in curr_partition_funcs.items()
+                i: WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in curr_partition_funcs.items()
             }
             word_counts = {
                 i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
             }  # dealing with no word case
             wordclouds = {
                 i: WordCloud(
-                    max_words=50, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+                    max_words=30, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
                 ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
             }
             
@@ -1204,7 +1306,7 @@ def process_communities(pat, data, algo='leiden', if_betweenness=True, limit_ann
                 ' & '.join(gene_func[gene_func.index == gene].to_list()) for gene in central_genes_and_scores.keys()
             ]
 
-            freq_words = WordCloud(max_words=50, min_font_size=15, stopwords=stopwords).process_text(curr_partition_funcs[i])
+            freq_words = WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(curr_partition_funcs[i])
             freq_words = dict(
                 sorted(freq_words.items(), key=lambda x: x[1], reverse=True)
             ) if freq_words else {'no found function': 1}  # dealing with no word case
