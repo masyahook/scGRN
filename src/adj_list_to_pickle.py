@@ -8,7 +8,7 @@ import pandas as pd
 
 if __name__ == '__main__':
     
-    parser = argparse.ArgumentParser(description='Save the output of pyScenic to pickle format, to subsequently speed up loading this file in the network anlaysis.')
+    parser = argparse.ArgumentParser(description='Save the output of pyScenic to pickle format, to subsequently speed up loading this file in the network analysis.')
     parser.add_argument('-f', '--fn', type=str, help='The full path to filename', required=True)
     args = parser.parse_args()
     

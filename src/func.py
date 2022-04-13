@@ -627,6 +627,20 @@ def get_tf_targ_ctx(df):
 def style_data_availability(df):
     return df.style.apply(lambda x: ["background-color: green" if v == '+' else "background-color: red" if v == '-' else 'background: white' for v in x], axis=1)
 
+def get_dorothea_mat(data, pat=None):
+    """
+    Load dorothea TF matrix.
+    """
+    
+    cell_type = data.replace('raw_data', '') if data != 'raw_data' else ''
+    
+    if pat is None:
+        
+        return pd.read_pickle(f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{cell_type}/data/Seurat/pickle/dorothea_data{cell_type}.pickle')
+        
+    else:
+        
+        return pd.read_pickle(f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/dorothea_data{cell_type}.pickle')
 
 def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=None):
     """

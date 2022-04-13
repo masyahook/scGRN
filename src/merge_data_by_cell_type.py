@@ -60,6 +60,6 @@ if __name__ == '__main__':
     # Saving metadata for each cell-type specific set of cells
     for cell_type in cell_type_metadata.keys():
         final_filedir = os.path.join(_DATA_HOME, 'cell_types', cell_type, 'data', 'Seurat')
-        cell_type_metadata[cell_type].dropna().to_csv(os.path.join(final_filedir, f'all_cells_metadata.tsv'), sep='\t', index_label=False)
-        cell_type_data[cell_type].dropna().to_csv(os.path.join(final_filedir, f'all_raw_data.tsv'), sep='\t', index_label=False)
+        cell_type_metadata[cell_type].dropna().to_csv(os.path.join(final_filedir, f'merged_cells_metadata.tsv'), sep='\t', index_label=False)
+        cell_type_data[cell_type].dropna().to_csv(os.path.join(final_filedir, f'merged_raw_data.tsv'), sep='\t', index_label=False)
         
