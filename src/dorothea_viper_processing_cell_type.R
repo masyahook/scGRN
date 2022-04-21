@@ -25,8 +25,9 @@ suppressPackageStartupMessages({
 ###################### INPUT
 
 option_list = list(
-  make_option(c("-m", "--meta_file"), type="character", default=NULL, help="Metadata file", metavar="character"),
-  make_option(c("-o", "--outdir"), type="character", default=NULL, help="Output folder", metavar="character"),
+  make_option(c("-m", "--meta_file"), type="character", default='/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_type_meta.tsv', help="Metadata file with cell types", metavar="character"),
+  make_option(c("-o", "--outdir"), type="character", default='/gpfs/projects/bsc08/bsc08890/res/covid_19', help="Output folder with cell-type specific data", metavar="character"),
+  make_option(c('-a', '--assay'), type='character', default='RNA', help='The assay to use when computing viper scores', metavar='character'),
   make_option(c("-v", "--verbose"), type="logical", default=T, help="Verbose", metavar="T|F"),
   make_option(c("-s", "--serialize"), type="logical", default=F, help="Save Seurat object", metavar="T|F"),
   make_option(c("-c", "--pleiotropy_correction"), type="logical", default=F, help='Pleitropy correction?', metavar="T|F")
@@ -56,31 +57,33 @@ cat("verbose: ", opt$verbose, "\n\n")
 ###################### LOAD DATA
 
 # read metadata
-meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F)
-rownames(meta) <- meta$id
+meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F, check.names=F, na.strings = '')
 
 # Getting dorothea regulons, subsetting only confident ones
 dorothea_regulon_human <- get(data("dorothea_hs", package = "dorothea"))
 regulon <- dorothea_regulon_human %>%
   dplyr::filter(confidence %in% c("A","B","C"))
 
-# create working directory
-dir.create(opt$outdir)
+# create directory where we will save cell-type specific data
+cell_type_dir <- paste0(opt$outdir, '/cell_types')
+dir.create(cell_type_dir, showWarnings = F)
 
 my_ggsave <- function(obj, filename){
   suppressMessages(ggsave(obj, filename = filename))
 }
 
-# process samples
-sobjs <- list()
-for(i in 1:nrow(meta)){
-  cat("  > Processing sample ",meta$id[i]," (",i," of ", nrow(meta),")\n", sep="")
+##################### CELL-TYPE SPECIFIC PROCESSING
+
+for(i in 1:ncol(meta)){
+  
+  curr_type <- colnames(meta)[i]
+  cat("  > Processing cell type: ",curr_type," (",i," of ", nrow(meta),")\n", sep="")
   
   ###################### INIT
   cat("      - Init\n")
   
   # Specifying data/fig folders
-  sample_dir <- paste0(opt$outdir, "/", meta$id[i])
+  sample_dir <- paste0(cell_type_dir, "/", curr_type)
   sample_fig_dir <- paste0(sample_dir, '/figs/Seurat')
   sample_data_dir <- paste0(sample_dir, '/data/Seurat')
   
@@ -98,7 +101,8 @@ for(i in 1:nrow(meta)){
                     options = list(method = "scale", minsize = 4, 
                                    pleiotropy = opt$pleiotropy_correction, 
                                    eset.filter = FALSE, 
-                                   cores = run_on_cores, verbose = FALSE))
+                                   cores = run_on_cores, verbose = FALSE),
+                    assay_key=opt$assay)
   
   # Running viper-based pipeline
   DefaultAssay(object = sobj) <- "dorothea"

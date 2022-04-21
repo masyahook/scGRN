@@ -1046,7 +1046,7 @@ def process_communities(pat, data, algo='leiden', filter_quantile=0.95, if_betwe
     )
     
     # Loading the graph
-    G = get_nx_graph(pat, data, 'all', get_filtered=filter_quantile)
+    G = get_nx_graph(data=data, data_type='all', pat=pat, get_filtered=filter_quantile)
     print(f"Loaded the graph: {colored('pat', 'green')}='{colored(pat, 'red')}', "
           f"{colored('data', 'green')}='{colored(data, 'red')}', "
           f"{colored('data_type', 'green')}='{colored('all', 'red')}'\n")

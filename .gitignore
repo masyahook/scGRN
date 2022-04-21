@@ -13,3 +13,6 @@ sbatch/*
 */.ipynb_checkpoints/*
 */__pycache__/*
 !/.gitignore
+Pypath_pipeline/
+pypath_log/
+figs/*
