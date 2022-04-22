@@ -627,6 +627,7 @@ def get_tf_targ_ctx(df):
 def style_data_availability(df):
     return df.style.apply(lambda x: ["background-color: green" if v == '+' else "background-color: red" if v == '-' else 'background: white' for v in x], axis=1)
 
+
 def get_dorothea_mat(data, pat=None):
     """
     Load dorothea TF matrix.
@@ -636,11 +637,16 @@ def get_dorothea_mat(data, pat=None):
     
     if pat is None:
         
-        return pd.read_pickle(f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{cell_type}/data/Seurat/pickle/dorothea_data{cell_type}.pickle')
+        return pd.read_pickle(
+            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{cell_type}'
+            f'/data/Seurat/pickle/dorothea_data{cell_type}.pickle'
+        )
         
     else:
         
-        return pd.read_pickle(f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/dorothea_data{cell_type}.pickle')
+        return pd.read_pickle(
+            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/dorothea_data{cell_type}.pickle'
+        )
 
 def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=None):
     """
@@ -648,7 +654,7 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
     """
     
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
-    filter_suffix = f"_filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
+    filter_suffix = f"filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
     
     if pat is None:
         
@@ -657,15 +663,27 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
         
         return pd.read_pickle(os.path.join(
-            _DATA_HOME, data_folder, 'data', method, 'pickle', f'all_raw_data_{data_suffix}{filter_suffix}.pickle'
+            _DATA_HOME, data_folder, 'data', method, 'pickle', f'raw_data_{data_suffix}_{filter_suffix}.pickle'
         ))
+    
+    elif pat in ['C', 'M', 'S']:
         
+        # Loading patient-type aggregated data
+        _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
+        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        
+        return pd.read_pickle(os.path.join(
+            _DATA_HOME, data_folder, 'data', method, 'pickle',
+            f'raw_data_{data_suffix}_{pat}_type_{filter_suffix}.pickle'
+        ))
+    
     else:
         
         # Loading patient-specific data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+        
         return pd.read_pickle(os.path.join(
-            _DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}{filter_suffix}.pickle'
+            _DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}_{filter_suffix}.pickle'
         ))
 
 
@@ -675,7 +693,7 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
     """
     
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
-    filter_suffix = f"_filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
+    filter_suffix = f"filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
     
     if pat is None:
         
@@ -684,15 +702,27 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
         
         return nx.read_gpickle(os.path.join(
-            _DATA_HOME, data, 'data', method, 'nx_graph', f'all_raw_data_{data_suffix}{filter_suffix}.gpickle'
+            _DATA_HOME, data_folder, 'data', method, 'nx_graph', f'raw_data_{data_suffix}_{filter_suffix}.gpickle'
         ))
 
-    else:
+    elif pat in ['C', 'M', 'S']:
     
+        # Loading patient-type aggregated data
+        _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
+        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        
+        return nx.read_gpickle(os.path.join(
+            _DATA_HOME, data_folder, 'data', method, 'nx_graph', 
+            f'raw_data_{data_suffix}_{pat}_type_{filter_suffix}.gpickle'
+        ))
+    
+    else:
+        
         # Loading patient-specific data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+        
         return nx.read_gpickle(os.path.join(
-            _DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}{filter_suffix}.gpickle'
+            _DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}_{filter_suffix}.gpickle'
         ))
 
 
@@ -1011,9 +1041,9 @@ def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True,
     return ax
 
            
-def process_communities(pat, data, algo='leiden', filter_quantile=0.95, if_betweenness=True, limit_anno_until=50, 
-                        k=5000, save_top_intercommunity_links_until=20, other_functions_until=20, 
-                        save_top_new_found_cluster_links=20, seed=42):
+def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_betweenness=True, 
+                        limit_anno_until=50, k=5000, save_top_intercommunity_links_until=20, 
+                        other_functions_until=20, save_top_new_found_cluster_links=20, seed=42):
     """
     Process graph by finding its communities, annotate its communities, and save everything into .tsv format.
     """
@@ -1027,12 +1057,38 @@ def process_communities(pat, data, algo='leiden', filter_quantile=0.95, if_betwe
 
     # Loading sample meta data, reordering patients
     full_meta = pd.read_csv(_FMETA, sep='\t', index_col=0)
-
-    # Getting information about all patients
-    _ALL_PATIENTS = full_meta.index.to_list()
-    _ALL_FIG_DIRS = {
-        pat: os.path.join(_DATA_HOME, pat, 'figs/grnboost2') for pat in _ALL_PATIENTS
-    }
+    
+    # Prepare everything to save the figs and dataframe
+    filter_suffix = f"filtered_{str(filter_quantile).replace('.', '_')}" if filter_quantile is not None else ''
+    if pat is None:
+        
+        # Cell-type aggregated data
+        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        
+        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', f'raw_data_{filter_suffix}')
+        
+        data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
+        data_as = os.path.join(data_to, f'{data}_communities_info.pickle')
+        
+    if pat in ['C', 'M', 'S']:
+        
+        # Patient-type aggregated data
+        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        
+        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', 
+                               f'raw_data_{pat}_type_{filter_suffix}')
+        
+        data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
+        data_as = os.path.join(data_to, f'{data}_{pat}_type_communities_info.pickle')
+        
+    else:
+        # Loading patient-specific data
+        figs_as = os.path.join(_DATA_HOME, pat, 'figs', 'grnboost2', data)
+        
+        data_to = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{algo}_communities')
+        data_as = os.path.join(data_to, f'{data}_communities_info.pickle')
+    
+    os.makedirs(data_to, exist_ok=True)
     
     # Getting plot titles
     dtype_title = 'gene-gene links'
@@ -1211,7 +1267,7 @@ def process_communities(pat, data, algo='leiden', filter_quantile=0.95, if_betwe
                      fontsize=30)
         plt.axis('off')
 
-        plt.savefig(os.path.join(_ALL_FIG_DIRS[pat], f"{pat}_{data}_all_communities_{plot_type}.png"), bbox_inches='tight', dpi=400)
+        plt.savefig(f'{figs_as}_{plot_type}.png', bbox_inches='tight', dpi=400)
             
     print('Finished plotting..\n')
             
@@ -1219,10 +1275,6 @@ def process_communities(pat, data, algo='leiden', filter_quantile=0.95, if_betwe
     ###### SAVING DATAFRAME CONTAINING INFORMATION ABOUT EACH COMMUNITY ######
     
     print('Saving info dataframe..')
-    
-    # Create a directory where the dataframe will be stored
-    save_to_folder = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{algo}_communities')
-    os.makedirs(save_to_folder, exist_ok=True)
     
     communities_df = pd.DataFrame(
         index=pd.Series(range(num_partitions), name='community_i'), 
@@ -1395,8 +1447,8 @@ def process_communities(pat, data, algo='leiden', filter_quantile=0.95, if_betwe
                     '; '.join([f'{score:.2f}' for _, _, score in links_i_k])
     
     # Saving dataframe
-    communities_df.to_pickle(os.path.join(save_to_folder, f'{pat}_{data}_all_communities_info.pickle'))
-    print(f"Saved the data to {os.path.join(save_to_folder, f'{pat}_{data}_all_communities_info.pickle')}!\n")
+    communities_df.to_pickle(data_as)
+    print(f"Saved the data to {data_as}!\n")
         
 
 def betweenness_centrality_parallel(G, processes=None):

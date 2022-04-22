@@ -16,8 +16,8 @@ from src.func import process_communities
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Run community analysis on a specific GRN.')
-    parser.add_argument('-p', '--patient', default='C51', type=str, help='Patient ID', required=True)
     parser.add_argument('-d', '--data', default='raw_data', type=str, help="The name of the data - starts with 'raw_data' and could end with cell type", required=True)
+    parser.add_argument('-p', '--patient', default='C51', type=str, default=None, help='Patient ID')
     parser.add_argument('-a', '--algo', type=str, default='leiden', help="The name of the clustering algorithm - either 'leiden' or 'louvain'")
     parser.add_argument('-ib', '--if_betweenness', type=bool, default=True, help='True if use betweeness metric to compute centrality, False if use closeness centrality')
     parser.add_argument('-la', '--limit_anno_until', type=int, default=50, help='The upper limit of genes that we will base the cluster annotation on')
