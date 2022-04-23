@@ -36,6 +36,10 @@ stopwords = STOPWORDS.union({
     'binding', 'response', 'gene', 'genes', 'encoding', 'defining', 'GeneID', 'regulated',
 })
 
+def is_non_empty(fn):
+    return os.path.exists(fn) and (os.stat(fn).st_size != 0)
+
+
 def save_pickle(f, fn):
     """
     Save object as a pickle file (usually used for dicts).
@@ -63,6 +67,156 @@ def load_pickle(fn):
         f = pickle.load(fo)
         
     return f
+
+
+def get_avail_data_mat():
+    """
+    Obtain matrix that contains the information of the data availability
+    """
+    # Setting pathways to files
+    _PROJ_PATH = '/gpfs/projects/bsc08/bsc08890'
+    _FMETA = os.path.join(_PROJ_PATH, 'data/GSE145926_RAW/metadata.tsv')
+    _DATA_HOME = os.path.join(_PROJ_PATH, 'res/covid_19')
+    full_meta = pd.read_csv(_FMETA, sep='\t', index_col=0)
+    pat_cons = ['C', 'M', 'S']
+
+    # Adding cell-type frequency to the metadata
+    for patient_id in full_meta.index:
+        cells_metadata = pd.read_csv(os.path.join(_DATA_HOME, patient_id, 'data', 'Seurat', 'cells_metadata.tsv'), sep='\t')
+        full_meta.loc[patient_id, 'num_cells'] = len(cells_metadata)
+        for cell_type, cell_count in cells_metadata['cell_type'].value_counts().iteritems():
+            full_meta.loc[patient_id, cell_type] = cell_count   
+    
+    _AVAIL_DATA_MAT = pd.DataFrame(columns = ['all_data'] + full_meta.columns[3:].to_list(), index=['all_data'] + pat_cons + full_meta.index.to_list())
+    for pat in _AVAIL_DATA_MAT.index[4:]:
+        for d in _AVAIL_DATA_MAT.columns:
+            d_fn = f'raw_data_{d}' if d != 'all_data' else 'raw_data'
+            fn = os.path.join(_DATA_HOME, pat, 'data', 'Seurat', f'{d_fn}.tsv')
+            if is_non_empty(fn):
+                _AVAIL_DATA_MAT.loc[pat, d] = True
+            else:
+                _AVAIL_DATA_MAT.loc[pat, d] = False
+                        
+    for pat in _AVAIL_DATA_MAT.index[:4]:
+        for d in _AVAIL_DATA_MAT.columns:
+            d_fn = 'raw_data' if pat == 'all_data' else f'raw_data_{pat}_type'
+            fn = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'Seurat', f'{d_fn}.tsv')
+            if is_non_empty(fn):
+                _AVAIL_DATA_MAT.loc[pat, d] = True
+            else:
+                _AVAIL_DATA_MAT.loc[pat, d] = False
+                        
+    return _AVAIL_DATA_MAT
+
+
+def get_avail_graph_mat(filtered=0.95):
+    """
+    Obtain matrices that contain the information of the graph availability
+    """
+    # Setting pathways to files
+    _PROJ_PATH = '/gpfs/projects/bsc08/bsc08890'
+    _FMETA = os.path.join(_PROJ_PATH, 'data/GSE145926_RAW/metadata.tsv')
+    _DATA_HOME = os.path.join(_PROJ_PATH, 'res/covid_19')
+    full_meta = pd.read_csv(_FMETA, sep='\t', index_col=0)
+    pat_cons = ['C', 'M', 'S']
+    filtered_suffix = str(filtered).replace('.', '_')
+
+    # Adding cell-type frequency to the metadata
+    for patient_id in full_meta.index:
+        cells_metadata = pd.read_csv(os.path.join(_DATA_HOME, patient_id, 'data', 'Seurat', 'cells_metadata.tsv'), sep='\t')
+        full_meta.loc[patient_id, 'num_cells'] = len(cells_metadata)
+        for cell_type, cell_count in cells_metadata['cell_type'].value_counts().iteritems():
+            full_meta.loc[patient_id, cell_type] = cell_count   
+    
+    _AVAIL_GRAPH_MATS = dict(
+        zip(
+            ['all', 'TF', 'ctx'], 
+            [pd.DataFrame(columns = ['all_data'] + full_meta.columns[3:].to_list(), 
+                          index=['all_data'] + pat_cons + full_meta.index.to_list()),
+             pd.DataFrame(columns = ['all_data'] + full_meta.columns[3:].to_list(), 
+                          index=['all_data'] + pat_cons + full_meta.index.to_list()),
+             pd.DataFrame(columns = ['all_data'] + full_meta.columns[3:].to_list(), 
+                          index=['all_data'] + pat_cons + full_meta.index.to_list())]
+    ))
+    for d_type, data in _AVAIL_GRAPH_MATS.items():
+        d_type_suffix = 'cor' if d_type == 'all' else 'TF_cor' if d_type == 'TF' else 'TF_ctx'
+        for pat in data.index[4:]:
+            for d in data.columns:
+                d_fn = f'raw_data_{d}' if d != 'all_data' else 'raw_data'
+                fn = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{d_type_suffix}.gpickle')
+                fn_filtered = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{d_type_suffix}_filtered_{filtered_suffix}.gpickle')
+                if is_non_empty(fn) and is_non_empty(fn_filtered):
+                    data.loc[pat, d] = True
+                else:
+                    data.loc[pat, d] = False
+
+        for pat in data.index[:4]:
+            for d in data.columns:
+                d_fn = 'raw_data' if pat == 'all_data' else f'raw_data_{pat}_type'
+                fn = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{d_type_suffix}.gpickle')
+                fn_filtered = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{d_type_suffix}_filtered_{filtered_suffix}.gpickle')
+                if is_non_empty(fn) and is_non_empty(fn_filtered):
+                    data.loc[pat, d] = True
+                else:
+                    data.loc[pat, d] = False
+                        
+    return _AVAIL_GRAPH_MATS
+
+
+def get_avail_adj_list_mat(filtered=0.95):
+    """
+    Obtain matrices that contain the information of the graph availability
+    """
+    # Setting pathways to files
+    _PROJ_PATH = '/gpfs/projects/bsc08/bsc08890'
+    _FMETA = os.path.join(_PROJ_PATH, 'data/GSE145926_RAW/metadata.tsv')
+    _DATA_HOME = os.path.join(_PROJ_PATH, 'res/covid_19')
+    full_meta = pd.read_csv(_FMETA, sep='\t', index_col=0)
+    pat_cons = ['C', 'M', 'S']
+    filtered_suffix = str(filtered).replace('.', '_')
+
+    # Adding cell-type frequency to the metadata
+    for patient_id in full_meta.index:
+        cells_metadata = pd.read_csv(os.path.join(_DATA_HOME, patient_id, 'data', 'Seurat', 'cells_metadata.tsv'), sep='\t')
+        full_meta.loc[patient_id, 'num_cells'] = len(cells_metadata)
+        for cell_type, cell_count in cells_metadata['cell_type'].value_counts().iteritems():
+            full_meta.loc[patient_id, cell_type] = cell_count   
+    
+    _AVAIL_ADJ_LIST_MATS = dict(
+        zip(
+            ['all', 'TF', 'ctx'], 
+            [pd.DataFrame(columns = ['all_data'] + full_meta.columns[3:].to_list(), 
+                          index=['all_data'] + pat_cons + full_meta.index.to_list()),
+             pd.DataFrame(columns = ['all_data'] + full_meta.columns[3:].to_list(), 
+                          index=['all_data'] + pat_cons + full_meta.index.to_list()),
+             pd.DataFrame(columns = ['all_data'] + full_meta.columns[3:].to_list(), 
+                          index=['all_data'] + pat_cons + full_meta.index.to_list())]
+    ))
+    for d_type, data in _AVAIL_ADJ_LIST_MATS.items():
+        d_type_suffix = 'cor' if d_type == 'all' else 'TF_cor' if d_type == 'TF' else 'TF_ctx'
+        for pat in data.index[4:]:
+            for d in data.columns:
+                d_fn = f'raw_data_{d}' if d != 'all_data' else 'raw_data'
+                fn = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{d_fn}_{d_type_suffix}.tsv')
+                fn_pickled = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', 'pickle', f'{d_fn}_{d_type_suffix}.pickle')
+                filtered_fn_pickled = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', 'pickle', f'{d_fn}_{d_type_suffix}_filtered_{filtered_suffix}.pickle')
+                if is_non_empty(fn) and is_non_empty(fn_pickled) and is_non_empty(filtered_fn_pickled):
+                    data.loc[pat, d] = True
+                else:
+                    data.loc[pat, d] = False
+
+        for pat in data.index[:4]:
+            for d in data.columns:
+                d_fn = 'raw_data' if pat == 'all_data' else f'raw_data_{pat}_type'
+                fn = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', f'{d_fn}_{d_type_suffix}.tsv')
+                fn_pickled = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', 'pickle', f'{d_fn}_{d_type_suffix}.pickle')
+                filtered_fn_pickled = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', 'pickle', f'{d_fn}_{d_type_suffix}_filtered_{filtered_suffix}.pickle')
+                if is_non_empty(fn) and is_non_empty(fn_pickled) and is_non_empty(filtered_fn_pickled):
+                    data.loc[pat, d] = True
+                else:
+                    data.loc[pat, d] = False
+                        
+    return _AVAIL_ADJ_LIST_MATS
 
 
 def post_process_adj_list(fn, q_thresh):
