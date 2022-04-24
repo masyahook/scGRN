@@ -798,23 +798,27 @@ def get_dorothea_mat(data, pat=None):
     Load dorothea TF matrix.
     """
     
-    cell_type = data.replace('raw_data', '') if data != 'raw_data' else ''
-    
     if pat is None or pat == 'all_data':
         
+        data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
+        
         return pd.read_pickle(
-            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{cell_type}'
+            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{data_folder}'
             f'/data/Seurat/pickle/dorothea_data.pickle'
         )
     
     elif pat in ['C', 'M', 'S']:
         
+        data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
+        
         return pd.read_pickle(
-            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{cell_type}'
+            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{data_folder}'
             f'/data/Seurat/pickle/dorothea_data_{pat}_type.pickle'
         )
         
     else:
+        
+        cell_type = '' if (data == 'raw_data' or data == 'all_data') else data.replace('raw_data', '')
         
         return pd.read_pickle(
             f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/dorothea_data{cell_type}.pickle'
@@ -832,7 +836,7 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         
         # Loading cell-type aggregated data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
-        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
         
         return pd.read_pickle(os.path.join(
             _DATA_HOME, data_folder, 'data', method, 'pickle', f'raw_data_{data_suffix}{filter_suffix}.pickle'
@@ -842,7 +846,7 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         
         # Loading patient-type aggregated data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
-        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
         
         return pd.read_pickle(os.path.join(
             _DATA_HOME, data_folder, 'data', method, 'pickle',
@@ -853,6 +857,13 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         
         # Loading patient-specific data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+        
+        if data == 'all_data':
+            data = 'raw_data'
+        elif 'raw_data_' not in data:
+            data = f'raw_data_{data}'
+        else:
+            pass
         
         return pd.read_pickle(os.path.join(
             _DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}{filter_suffix}.pickle'
@@ -871,7 +882,7 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         
         # Loading cell-type aggregated data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
-        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        data_folder = data.replace('raw_data_', '') if data != 'all_data' and data != 'raw_data' else 'all_data'
         
         return nx.read_gpickle(os.path.join(
             _DATA_HOME, data_folder, 'data', method, 'nx_graph', f'raw_data_{data_suffix}{filter_suffix}.gpickle'
@@ -881,7 +892,7 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
     
         # Loading patient-type aggregated data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
-        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        data_folder = data.replace('raw_data_', '') if data != 'all_data' and data != 'raw_data' else 'all_data'
         
         return nx.read_gpickle(os.path.join(
             _DATA_HOME, data_folder, 'data', method, 'nx_graph', 
@@ -892,6 +903,13 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         
         # Loading patient-specific data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+        
+        if data == 'all_data':
+            data = 'raw_data'
+        elif 'raw_data_' not in data:
+            data = f'raw_data_{data}'
+        else:
+            pass
         
         return nx.read_gpickle(os.path.join(
             _DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}{filter_suffix}.gpickle'
@@ -1231,40 +1249,43 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     full_meta = pd.read_csv(_FMETA, sep='\t', index_col=0)
     
     # Prepare everything to save the figs and dataframe
-    filter_suffix = f"filtered_{str(filter_quantile).replace('.', '_')}" if filter_quantile is not None else ''
-    if pat is None:
+    if data == 'all_data':
+        data = 'raw_data'
+    elif 'raw_data_' not in data:
+        data = f'raw_data_{data}'
+    else:
+        pass
+    
+    if pat is None or pat == 'all_data':
         
         # Cell-type aggregated data
-        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
         
-        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', f'raw_data_{filter_suffix}')
+        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', f'raw_data')
         
         data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
-        data_as = os.path.join(data_to, f'{data}_communities_info.pickle')
+        data_as = os.path.join(data_to, f'raw_data_communities_info.pickle')
         
-    if pat in ['C', 'M', 'S']:
+    elif pat in ['C', 'M', 'S']:
         
         # Patient-type aggregated data
-        data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
+        data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
         
         figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', 
-                               f'raw_data_{pat}_type_{filter_suffix}')
+                               f'raw_data_{pat}_type')
         
         data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
-        data_as = os.path.join(data_to, f'{data}_{pat}_type_communities_info.pickle')
+        data_as = os.path.join(data_to, f'raw_data_{pat}_type_communities_info.pickle')
         
     else:
+        
         # Loading patient-specific data
-        figs_as = os.path.join(_DATA_HOME, pat, 'figs', 'grnboost2', data)
+        figs_as = os.path.join(_DATA_HOME, pat, 'figs', 'grnboost2', f'{data}')
         
         data_to = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{algo}_communities')
         data_as = os.path.join(data_to, f'{data}_communities_info.pickle')
     
     os.makedirs(data_to, exist_ok=True)
-    
-    # Getting plot titles
-    dtype_title = 'gene-gene links'
-    data_title = 'all data' if data == 'raw_data' else 'all data, only HVGs' if 'HVG' in data else data.replace('raw_data_', '').replace('_', ' ')
     
     # Loading lists of TFs from Lambert 2018 and DoRothEA, in the latter case we will keep only confident regulons
     lambert_TF_names = pd.read_csv(os.path.join(_PROJ_PATH, 'data/TF_lists/lambert2018.txt'), header=None)[0].to_list()
@@ -1434,7 +1455,7 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
                                cmap=cmap, alpha=0.01)
         print(f'Finished plotting {plot_type} nodes..')
 
-        ax.set_title(f'Found communities ({pat}, {dtype_title}, {data_title}), '
+        ax.set_title(f'Found communities ({pat}, {data_type}, {data}), '
                      f'annotation - {plot_type}', 
                      fontsize=30)
         plt.axis('off')
@@ -1657,3 +1678,5 @@ def betweenness_centrality_parallel(G, processes=None):
         for n in bt:
             bt_c[n] += bt[n]
     return bt_c
+
+
