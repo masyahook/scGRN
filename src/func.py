@@ -89,7 +89,7 @@ def get_avail_data_mat():
     
     _AVAIL_DATA_MAT = pd.DataFrame(columns = ['all_data'] + full_meta.columns[3:].to_list(), index=['all_data'] + pat_cons + full_meta.index.to_list())
     for pat in _AVAIL_DATA_MAT.index[4:]:
-        for d in _AVAIL_DATA_MAT.columns:
+        for d in ['all_data'] + full_meta.loc[pat][3:].dropna().index.to_list():
             d_fn = f'raw_data_{d}' if d != 'all_data' else 'raw_data'
             fn = os.path.join(_DATA_HOME, pat, 'data', 'Seurat', f'{d_fn}.tsv')
             if is_non_empty(fn):
@@ -98,7 +98,8 @@ def get_avail_data_mat():
                 _AVAIL_DATA_MAT.loc[pat, d] = False
                         
     for pat in _AVAIL_DATA_MAT.index[:4]:
-        for d in _AVAIL_DATA_MAT.columns:
+        for d in ["all_data", "T_cells", "Macrophage", "DC", "Epithelial_cells", "B_cell",
+                  "NK_cell", "Monocyte", "Neutrophils", "Pre-B_cell_CD34-"]:
             d_fn = 'raw_data' if pat == 'all_data' else f'raw_data_{pat}_type'
             fn = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'Seurat', f'{d_fn}.tsv')
             if is_non_empty(fn):
@@ -141,7 +142,7 @@ def get_avail_graph_mat(filtered=0.95):
     for d_type, data in _AVAIL_GRAPH_MATS.items():
         d_type_suffix = 'cor' if d_type == 'all' else 'TF_cor' if d_type == 'TF' else 'TF_ctx'
         for pat in data.index[4:]:
-            for d in data.columns:
+            for d in ['all_data'] + full_meta.loc[pat][3:].dropna().index.to_list():
                 d_fn = f'raw_data_{d}' if d != 'all_data' else 'raw_data'
                 fn = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{d_type_suffix}.gpickle')
                 fn_filtered = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{d_type_suffix}_filtered_{filtered_suffix}.gpickle')
@@ -151,7 +152,8 @@ def get_avail_graph_mat(filtered=0.95):
                     data.loc[pat, d] = False
 
         for pat in data.index[:4]:
-            for d in data.columns:
+            for d in ["all_data", "T_cells", "Macrophage", "DC", "Epithelial_cells", "B_cell",
+                  "NK_cell", "Monocyte", "Neutrophils", "Pre-B_cell_CD34-"]:
                 d_fn = 'raw_data' if pat == 'all_data' else f'raw_data_{pat}_type'
                 fn = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{d_type_suffix}.gpickle')
                 fn_filtered = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{d_type_suffix}_filtered_{filtered_suffix}.gpickle')
@@ -195,7 +197,7 @@ def get_avail_adj_list_mat(filtered=0.95):
     for d_type, data in _AVAIL_ADJ_LIST_MATS.items():
         d_type_suffix = 'cor' if d_type == 'all' else 'TF_cor' if d_type == 'TF' else 'TF_ctx'
         for pat in data.index[4:]:
-            for d in data.columns:
+            for d in ['all_data'] + full_meta.loc[pat][3:].dropna().index.to_list():
                 d_fn = f'raw_data_{d}' if d != 'all_data' else 'raw_data'
                 fn = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{d_fn}_{d_type_suffix}.tsv')
                 fn_pickled = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', 'pickle', f'{d_fn}_{d_type_suffix}.pickle')
@@ -206,7 +208,8 @@ def get_avail_adj_list_mat(filtered=0.95):
                     data.loc[pat, d] = False
 
         for pat in data.index[:4]:
-            for d in data.columns:
+            for d in ["all_data", "T_cells", "Macrophage", "DC", "Epithelial_cells", "B_cell",
+                  "NK_cell", "Monocyte", "Neutrophils", "Pre-B_cell_CD34-"]:
                 d_fn = 'raw_data' if pat == 'all_data' else f'raw_data_{pat}_type'
                 fn = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', f'{d_fn}_{d_type_suffix}.tsv')
                 fn_pickled = os.path.join(_DATA_HOME, 'cell_types', d, 'data', 'grnboost2', 'pickle', f'{d_fn}_{d_type_suffix}.pickle')
@@ -217,6 +220,14 @@ def get_avail_adj_list_mat(filtered=0.95):
                     data.loc[pat, d] = False
                         
     return _AVAIL_ADJ_LIST_MATS
+
+
+def get_avail_list(d_type, pat):
+    """
+    Get a list of available graphs/datas
+    """
+    avail_Gs = get_avail_graph_mat()
+    return avail_Gs[d_type].loc[pat].dropna().loc[lambda x: x].index.map(lambda x: f'raw_data_{x}' if x != 'all_data' else 'raw_data')
 
 
 def post_process_adj_list(fn, q_thresh):
@@ -789,11 +800,18 @@ def get_dorothea_mat(data, pat=None):
     
     cell_type = data.replace('raw_data', '') if data != 'raw_data' else ''
     
-    if pat is None:
+    if pat is None or pat == 'all_data':
         
         return pd.read_pickle(
             f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{cell_type}'
-            f'/data/Seurat/pickle/dorothea_data{cell_type}.pickle'
+            f'/data/Seurat/pickle/dorothea_data.pickle'
+        )
+    
+    elif pat in ['C', 'M', 'S']:
+        
+        return pd.read_pickle(
+            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{cell_type}'
+            f'/data/Seurat/pickle/dorothea_data_{pat}_type.pickle'
         )
         
     else:
@@ -808,16 +826,16 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
     """
     
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
-    filter_suffix = f"filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
+    filter_suffix = f"_filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
     
-    if pat is None:
+    if pat is None or pat == 'all_data':
         
         # Loading cell-type aggregated data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
         data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
         
         return pd.read_pickle(os.path.join(
-            _DATA_HOME, data_folder, 'data', method, 'pickle', f'raw_data_{data_suffix}_{filter_suffix}.pickle'
+            _DATA_HOME, data_folder, 'data', method, 'pickle', f'raw_data_{data_suffix}{filter_suffix}.pickle'
         ))
     
     elif pat in ['C', 'M', 'S']:
@@ -828,7 +846,7 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         
         return pd.read_pickle(os.path.join(
             _DATA_HOME, data_folder, 'data', method, 'pickle',
-            f'raw_data_{data_suffix}_{pat}_type_{filter_suffix}.pickle'
+            f'raw_data_{pat}_type_{data_suffix}{filter_suffix}.pickle'
         ))
     
     else:
@@ -837,7 +855,7 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
         
         return pd.read_pickle(os.path.join(
-            _DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}_{filter_suffix}.pickle'
+            _DATA_HOME, pat, 'data', method, 'pickle', f'{data}_{data_suffix}{filter_suffix}.pickle'
         ))
 
 
@@ -847,16 +865,16 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
     """
     
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
-    filter_suffix = f"filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
+    filter_suffix = f"_filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
     
-    if pat is None:
+    if pat is None or pat == 'all_data':
         
         # Loading cell-type aggregated data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
         data_folder = data.replace('raw_data_', '') if data != 'raw_data' else 'all_data'
         
         return nx.read_gpickle(os.path.join(
-            _DATA_HOME, data_folder, 'data', method, 'nx_graph', f'raw_data_{data_suffix}_{filter_suffix}.gpickle'
+            _DATA_HOME, data_folder, 'data', method, 'nx_graph', f'raw_data_{data_suffix}{filter_suffix}.gpickle'
         ))
 
     elif pat in ['C', 'M', 'S']:
@@ -867,7 +885,7 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         
         return nx.read_gpickle(os.path.join(
             _DATA_HOME, data_folder, 'data', method, 'nx_graph', 
-            f'raw_data_{data_suffix}_{pat}_type_{filter_suffix}.gpickle'
+            f'raw_data_{pat}_type_{data_suffix}{filter_suffix}.gpickle'
         ))
     
     else:
@@ -876,7 +894,7 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
         
         return nx.read_gpickle(os.path.join(
-            _DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}_{filter_suffix}.gpickle'
+            _DATA_HOME, pat, 'data', method, 'nx_graph', f'{data}_{data_suffix}{filter_suffix}.gpickle'
         ))
 
 
