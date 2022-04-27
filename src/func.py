@@ -1286,6 +1286,7 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
         data_as = os.path.join(data_to, f'{data}_communities_info.pickle')
     
     os.makedirs(data_to, exist_ok=True)
+    os.makedirs(os.path.dirname(figs_as), exist_ok=True)
     
     # Loading lists of TFs from Lambert 2018 and DoRothEA, in the latter case we will keep only confident regulons
     lambert_TF_names = pd.read_csv(os.path.join(_PROJ_PATH, 'data/TF_lists/lambert2018.txt'), header=None)[0].to_list()
@@ -1307,10 +1308,12 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     
     if algo == 'louvain':
         partition = community_louvain.best_partition(G.to_undirected(), weight='importance', random_state=seed)
-    else:
+    elif algo == 'leiden':
         G_igraph = ig.Graph.from_networkx(G.to_undirected())
         la_partition = la.find_partition(G_igraph, la.ModularityVertexPartition, weights='importance', seed=seed)
         partition = {G_igraph.vs[node]['_nx_name']: i for i, cluster_nodes in enumerate(la_partition) for node in cluster_nodes}
+    else:
+        raise NotImplementedError
         
     num_partitions = len(set(partition.values()))
     print(f'Number of partitions using {algo} algorithm: {colored(num_partitions, "cyan")}\n')
@@ -1455,7 +1458,7 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
                                cmap=cmap, alpha=0.01)
         print(f'Finished plotting {plot_type} nodes..')
 
-        ax.set_title(f'Found communities ({pat}, {data_type}, {data}), '
+        ax.set_title(f'Found communities ({pat}, "all", {data}), '
                      f'annotation - {plot_type}', 
                      fontsize=30)
         plt.axis('off')
