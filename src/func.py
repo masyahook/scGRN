@@ -1238,6 +1238,8 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     Process graph by finding its communities, annotate its communities, and save everything into .tsv format.
     """
     
+    from joblib import Parallel, delayed
+    
     print('\nPerforming community analysis..\n\n')
     
     # Setting pathways to files
@@ -1353,7 +1355,6 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     t = tqdm_cli(partition_genes_.items(), ascii=True)
     for i, genes in t:
         t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
-        top_len = min(limit_anno_until, len(genes))
         gene_scores = dict(
             sorted(
                 compute_centrality(
@@ -1363,7 +1364,7 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
             )
         )
         all_partition_genes[i] = gene_scores
-        central_gene_scores = {gene: gene_scores[gene] for k, gene in enumerate(gene_scores.keys()) if k < top_len}
+        central_gene_scores = {gene: gene_scores[gene] for k, gene in enumerate(gene_scores.keys()) if k < limit_anno_until}
         
         # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
         # displaying wordclouds (higher score - higher "frequency" or word size)
@@ -1469,144 +1470,146 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
             
     
     ###### SAVING DATAFRAME CONTAINING INFORMATION ABOUT EACH COMMUNITY ######
-    
-    print('Saving info dataframe..')
-    
-    communities_df = pd.DataFrame(
-        index=pd.Series(range(num_partitions), name='community_i'), 
-        columns=[
-            'num_nodes', 'num_edges',
-            'main_functions_GO', 'main_functions_KEGG', 'main_functions_immunological', 'main_functions_hallmark', 
-            'sorted_central_genes', 'sorted_central_gene_scores'
-            'sorted_central_functions_GO', 'sorted_central_functions_KEGG', 'sorted_central_functions_immunological', 'sorted_central_functions_hallmark', 
-            'most_frequent_function_words_GO', 'most_frequent_function_words_KEGG', 'most_frequent_function_words_immunological', 'most_frequent_function_words_hallmark',
-            'non_lambert_2018_TF_central_genes', 'non_dorothea_TF_central_genes', 
-            'other_functions_GO', 'genes_with_other_functions_GO',
-            'other_functions_KEGG', 'genes_with_other_functions_KEGG',
-            'other_functions_immunological', 'genes_with_other_functions_immunological',
-            'other_functions_hallmark', 'genes_with_other_functions_hallmark',
-            'all_sorted_genes',
-            'new_gene_gene_links_KEGG', 'new_gene_gene_links_hallmark',
-            'whole_G_central_genes', 'whole_G_central_gene_scores'] + 
-            [f'top_{n}_between_central_genes_and_community_{i}' for i in range(num_partitions) for n in ['links', 'link_scores']] + 
-            [f'top_{n}_with_community_{i}' for i in range(num_partitions) for n in ['links', 'link_scores']]
-    )
-    
-    t = tqdm_cli(range(num_partitions), ascii=True)
 
-    for i in t:
+    def compute_community_info(i):
+        """
+        Parallel saving of the dataframe.
+        """
+
         # Getting information for each community
         genes = list(all_partition_genes[i].keys())
         community_subgraph = G.subgraph(genes)
-        
+
+        communities_i = pd.Series(dtype='object')
+
         # Setting tqdm logs
-        t.set_description(f'Saving info about {i} cluster, size={community_subgraph.order()}')
-        
+        # t.set_description(f'Saving info about {i} cluster, size={community_subgraph.order()}')
+
         # Getting information about cluster genes
         central_genes_and_scores = {
-            gene: all_partition_genes[i][gene] for k, gene in enumerate(genes) if k < top_len
+            gene: all_partition_genes[i][gene] for k, gene in enumerate(genes) if k < limit_anno_until
         }
-                
-        non_lambert_TFs = [gene for gene in central_genes_and_scores.keys() if gene not in lambert_TF_names]
-        non_dorothea_TFs = [gene for gene in central_genes_and_scores.keys() if gene not in dorothea_TF_names]
+
+        non_lambert_TFs = [
+            f'{gene} (rank={k})' for k, gene in enumerate(central_genes_and_scores.keys(), start=1) if gene not in lambert_TF_names
+        ]
+        non_dorothea_TFs = [
+            f'{gene} (rank={k})' for k, gene in enumerate(central_genes_and_scores.keys(), start=1) if gene not in dorothea_TF_names
+        ]
 
         # Filling dataframe with the information
-        communities_df.loc[i, 'num_nodes'] = community_subgraph.number_of_nodes()
-        communities_df.loc[i, 'num_edges'] = community_subgraph.number_of_edges()
-        communities_df.loc[i, 'all_sorted_genes'] = '; '.join(genes)
-        communities_df.loc[i, 'sorted_central_genes'] = '; '.join(central_genes_and_scores.keys())
-        communities_df.loc[i, 'sorted_central_gene_scores'] = '; '.join(
-            [f'{score:.2f}' for score in central_genes_and_scores.values()]
+        communities_i['num_nodes'] = community_subgraph.number_of_nodes()
+        communities_i['num_edges'] = community_subgraph.number_of_edges()
+        communities_i['all_sorted_genes'] = '; '.join(genes)
+        communities_i['sorted_central_genes_scores'] = '; '.join(
+            f'{gene} (score={score:.2f})' for gene, score in central_genes_and_scores.items()
         )
-        communities_df.loc[i, 'non_lambert_2018_TF_central_genes'] = '; '.join(non_lambert_TFs)
-        communities_df.loc[i, 'non_dorothea_TF_central_genes'] = '; '.join(non_dorothea_TFs)
-        communities_df.loc[i, 'whole_G_central_genes'] = '; '.join(whole_G_central_genes.keys())
-        communities_df.loc[i, 'whole_G_central_gene_scores'] = '; '.join(
-            [f'{score:.2f}' for score in whole_G_central_genes.values()]
+        communities_i['non_lambert_2018_TF_central_genes'] = '; '.join(non_lambert_TFs)
+        communities_i['non_dorothea_TF_central_genes'] = '; '.join(non_dorothea_TFs)
+        communities_i['whole_G_central_genes_scores'] = '; '.join(
+            f'{gene} (score={score:.2f})' for gene, score in whole_G_central_genes.items()
         )
-        
+
         # Filling information about newly found gene-gene links (based on absence in KEGG and Hallmark)
         top_cluster_links = set()
-        
+
         iter_i = 0
-        
+
         for st, end, edge_info in sorted(community_subgraph.edges(data=True), 
                                          key=lambda t: t[2]['importance'], 
                                          reverse=True):
-            
+
             # If the current (reverse directed) link was not encountered previously..
             if (end, st) not in [(uniq_st, uniq_end) for uniq_st, uniq_end, _ in top_cluster_links]:
                 top_cluster_links.add((st, end, edge_info['importance']))
                 iter_i += 1
             if iter_i == save_top_new_found_cluster_links:
                 break
-                
+
         for anno_tag in ['KEGG', 'hallmark']:
-            
+
             curr_db = load_gene_func_db(anno_tag)
             tmp_list = []
-            
+
             # if `st` gene and `end` gene have non-overlapping annotations..
             for st, end, imp in top_cluster_links:
                 st_anno_IDs = set(curr_db[curr_db.index == st]['ID'])
                 end_anno_IDs = set(curr_db[curr_db.index == end]['ID'])
-                if len(st_anno_IDs.intersection(end_anno_IDs)) == 0:
+                if len(st_anno_IDs.intersection(end_anno_IDs)) == 0 and \
+                        (len(st_anno_IDs) != 0 or len(end_anno_IDs) != 0):
                     tmp_list.append(f"{st} ({' & '.join(st_anno_IDs)}) <-> {end} ({' & '.join(end_anno_IDs)})")
-                    
-            communities_df.loc[i, f'new_gene_gene_links_{anno_tag}'] = '; '.join(tmp_list)
-        
+
+            communities_i[f'new_gene_gene_links_{anno_tag}'] = '; '.join(tmp_list)
+
         # Filling information about cluster functions
         for tag, gene_func in gene_func_dbs.items():
-        
+
             curr_partition_funcs = partition_funcs[tag]
-            
-            central_functions = list(dict.fromkeys([  # dropping duplicates, but preserving order
+
+            # Filling main functions - non duplicates at the top 
+            main_functions = list(dict.fromkeys([  # dropping duplicates, but preserving order
                 func for gene in central_genes_and_scores.keys() 
                     for func in gene_func[gene_func.index == gene].to_list()
             ]))
-            central_functions_per_gene = [
-                ' & '.join(gene_func[gene_func.index == gene].to_list()) for gene in central_genes_and_scores.keys()
+            gene_with_main_functions = [
+                ','.join(
+                    gene_func[gene_func == func].loc[lambda x: x.index.isin(genes)].index.to_list()
+                ) for func in main_functions
             ]
+            main_functions = [
+                f'>>> {func} <<<: {gene}' for gene, func in zip(gene_with_main_functions, main_functions)
+            ]
+            communities_i[f'main_functions_{tag}'] = '; '.join(main_functions)  # saving..
 
-            freq_words = WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(curr_partition_funcs[i])
+            # Saving functions corresponding to each gene
+            central_functions_per_gene = [
+                f">>> {gene} <<<: {' & '.join(gene_func[gene_func.index == gene].to_list())}" for gene in central_genes_and_scores.keys()
+            ]
+            communities_i[f'sorted_central_functions_{tag}'] = '; '.join(central_functions_per_gene)  # saving..
+
+            # Saving most frequent function words
+            freq_words = WordCloud(
+                max_words=30, min_font_size=15, stopwords=stopwords
+            ).process_text(curr_partition_funcs[i])
             freq_words = dict(
                 sorted(freq_words.items(), key=lambda x: x[1], reverse=True)
             ) if freq_words else {'no found function': 1}  # dealing with no word case
+            communities_i[f'most_frequent_function_words_{tag}'] = '; '.join(freq_words.keys())  # saving
 
+            # Saving other functions present in this cluster
             other_functions = list(dict.fromkeys([  # dropping duplicates, but preserving order
                 func for gene in genes if gene not in central_genes_and_scores.keys() 
-                    for func in gene_func[gene_func.index == gene].to_list() if func not in central_functions
+                    for func in gene_func[gene_func.index == gene].to_list() if func not in main_functions
             ]))[:other_functions_until]
             genes_with_other_functions = [
-                ' & '.join(gene_func[gene_func == func].index.to_list()) for func in other_functions
+                ','.join(
+                    gene_func[gene_func == func].loc[lambda x: x.index.isin(genes)].index.to_list()
+                ) for func in other_functions
             ]
-            
-            # Filling dataframe with the information
-            communities_df.loc[i, f'main_functions_{tag}'] = '; '.join(central_functions)
-            communities_df.loc[i, f'sorted_central_functions_{tag}'] = '; '.join(central_functions_per_gene)
-            communities_df.loc[i, f'most_frequent_function_words_{tag}'] = '; '.join(freq_words.keys())
-            communities_df.loc[i, f'other_functions_{tag}'] = '; '.join(other_functions)
-            communities_df.loc[i, f'genes_with_other_functions_{tag}'] = '; '.join(genes_with_other_functions)
+            other_functions = [
+                f'>>> {func} <<<: {gene}' for gene, func in zip(genes_with_other_functions, other_functions)
+            ]
+            communities_i[f'other_functions_{tag}'] = '; '.join(other_functions)  # saving
 
         # Filling information about top inter-community links
-        t_sub = tqdm_cli(range(num_partitions), ascii=True, leave=False)
-        for k in t_sub:
-            t_sub.set_description(f'Extracting top inter-community links with {k}')
-            
+        # t_sub = tqdm(range(num_partitions), ascii=True, leave=False)
+        for k in range(num_partitions):  # t_sub:
+            # t_sub.set_description(f'Extracting top inter-community links with {k}')
+
             if i != k:
                 genes_in_k = list(all_partition_genes[k].keys())
-                
+
                 # Getting the subgraph that contains central genes in community_i and all genes in comunity_k
                 G_central_i_k = G.subgraph(list(central_genes_and_scores.keys()) + genes_in_k)
                 # Getting the subgraph that contains all genes from community_i and community_k
                 G_i_k = G.subgraph(genes + genes_in_k)
-                
+
                 # Creating two helper sets that allow us to keep only unique links
                 links_central_i_k = set()
                 links_i_k = set()
-                
+
                 iter_i = 0
-                
+
                 # Getting out top links from the second subgraph
                 for st, end, edge_info in sorted(G_central_i_k.edges(data=True), 
                                                  key=lambda t: t[2]['importance'], 
@@ -1617,30 +1620,50 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
                         iter_i += 1
                     if iter_i == save_top_intercommunity_links_until:
                         break
-                        
+
                 iter_i = 0
-                        
+
                 # Getting out top links from the second subgraph
                 for st, end, edge_info in sorted(G_i_k.edges(data=True), 
                                                  key=lambda t: t[2]['importance'], 
                                                  reverse=True):
                     # If the current (reverse directed) link was not encountered previously..
-                    if (end, st) not in [(uniq_st, uniq_end) for uniq_st, uniq_end, _ in links_central_i_k]:
-                        links_central_i_k.add((st, end, edge_info['importance']))
+                    if (end, st) not in [(uniq_st, uniq_end) for uniq_st, uniq_end, _ in links_i_k]:
+                        links_i_k.add((st, end, edge_info['importance']))
                         iter_i += 1
                     if iter_i == save_top_intercommunity_links_until:
                         break
-                        
+
                 # Adding top links to the dataframe
-                communities_df.loc[i, f'top_links_between_central_genes_and_community_{k}'] = \
-                    '; '.join([f'{st}->{end}' for st, end, _ in links_central_i_k])
-                communities_df.loc[i, f'top_link_scores_between_central_genes_and_community_{k}'] = \
-                    '; '.join([f'{score:.2f}' for _, _, score in links_central_i_k])
-                
-                communities_df.loc[i, f'top_links_with_community_{k}'] = \
-                    '; '.join([f'{st}->{end}' for st, end, _ in links_i_k])
-                communities_df.loc[i, f'top_link_scores_with_community_{k}'] = \
-                    '; '.join([f'{score:.2f}' for _, _, score in links_i_k])
+                communities_i[f'top_links_scores_central_genes<->community_{k}'] = \
+                    '; '.join(f'{st} <-> {end} (score={score:.2f})' for st, end, score in links_central_i_k)
+                communities_i[f'top_links_scores_with_community_{k}'] = \
+                    '; '.join([f'{st} <-> {end} (score={score:.2f})' for st, end, score in links_i_k])
+
+        return communities_i
+    
+    print('Saving info dataframe..')
+    
+    t = tqdm_cli(range(num_partitions), ascii=True)
+    
+    # Getting dataframe
+    result = Parallel(n_jobs=num_workers)(delayed(compute_community_info)(i) for i in t)
+    communities_df = pd.concat(result, axis=1).T.reindex(
+        columns=[
+            'num_nodes', 'num_edges',
+            'main_functions_GO', 'main_functions_KEGG', 'main_functions_immunological', 'main_functions_hallmark', 
+            'non_lambert_2018_TF_central_genes', 'non_dorothea_TF_central_genes', 
+            'new_gene_gene_links_KEGG', 'new_gene_gene_links_hallmark',
+            'whole_G_central_genes_scores',
+            'other_functions_GO', 'other_functions_KEGG', 'other_functions_immunological', 'other_functions_hallmark',
+            'sorted_central_genes_scores',
+            'sorted_central_functions_GO', 'sorted_central_functions_KEGG', 'sorted_central_functions_immunological', 'sorted_central_functions_hallmark', 
+            'most_frequent_function_words_GO', 'most_frequent_function_words_KEGG', 'most_frequent_function_words_immunological', 'most_frequent_function_words_hallmark',
+            'all_sorted_genes'] + 
+            [f'top_links_scores_central_genes<->community_{i}' for i in range(num_partitions)] + 
+            [f'top_links_scores_with_community_{i}' for i in range(num_partitions)
+            ]
+    )
     
     # Saving dataframe
     communities_df.to_pickle(data_as)
