@@ -1615,7 +1615,8 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
                                                  key=lambda t: t[2]['importance'], 
                                                  reverse=True):
                     # If the current (reverse directed) link was not encountered previously..
-                    if (end, st) not in [(uniq_st, uniq_end) for uniq_st, uniq_end, _ in links_central_i_k]:
+                    if (end, st) not in [(uniq_st, uniq_end) for uniq_st, uniq_end, _ in links_central_i_k] and \
+                            ((st in genes and end not in genes) or (end in genes and st in genes)):
                         links_central_i_k.add((st, end, edge_info['importance']))
                         iter_i += 1
                     if iter_i == save_top_intercommunity_links_until:
@@ -1628,7 +1629,8 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
                                                  key=lambda t: t[2]['importance'], 
                                                  reverse=True):
                     # If the current (reverse directed) link was not encountered previously..
-                    if (end, st) not in [(uniq_st, uniq_end) for uniq_st, uniq_end, _ in links_i_k]:
+                    if (end, st) not in [(uniq_st, uniq_end) for uniq_st, uniq_end, _ in links_i_k] and \
+                            ((st in genes and end not in genes) or (end in genes and st in genes)):
                         links_i_k.add((st, end, edge_info['importance']))
                         iter_i += 1
                     if iter_i == save_top_intercommunity_links_until:
