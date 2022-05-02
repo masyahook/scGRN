@@ -1358,7 +1358,7 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
         gene_scores = dict(
             sorted(
                 compute_centrality(
-                    G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
+                    G.subgraph(genes), k=min(G.subgraph(genes).order(), k), normalized=True, **distance_metric
                 ).items(), 
                 key=lambda x: x[1], reverse=True
             )
@@ -1500,7 +1500,9 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
         # Filling dataframe with the information
         communities_i['num_nodes'] = community_subgraph.number_of_nodes()
         communities_i['num_edges'] = community_subgraph.number_of_edges()
-        communities_i['all_sorted_genes'] = '; '.join(genes)
+        communities_i['all_sorted_genes'] = '; '.join(
+            f'{gene} (score={score})' for gene, score in all_partition_genes[i].items()
+        )
         communities_i['sorted_central_genes_scores'] = '; '.join(
             f'{gene} (score={score:.2f})' for gene, score in central_genes_and_scores.items()
         )
