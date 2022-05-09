@@ -16,3 +16,4 @@ sbatch/*
 Pypath_pipeline/
 pypath_log/
 figs/*
+tmp*
