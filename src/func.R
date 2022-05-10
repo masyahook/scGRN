@@ -9,6 +9,9 @@ suppressPackageStartupMessages({
   library(clusterProfiler)
   library(ReactomePA)
   library(org.Hs.eg.db)
+  if (version$minor == '2.0'){
+    library(ggnewscale)
+  }
 })
 
 compute_ranking <- function(df, rank_type='FC'){
@@ -223,8 +226,18 @@ ora_from_DE_results <- function(markers_df, top_n=10, top_logFC = 1,
   # Setting some params
   pat_type_levels <- c('C', 'M', 'S')
   pat_levels <- c('C51', 'C52', 'C100', 'C141', 'C142', 'C144', 'C143', 'C145', 'C146', 'C148', 'C149', 'C152')
-  groups <- ifelse((intersect(pat_type_levels, unique(markers_df$cluster)) > 0), 
-                   pat_type_levels, pat_levels)
+  if (length(intersect(pat_type_levels, unique(markers_df$cluster))) > 0){
+    groups <- pat_type_levels
+  } else {
+    groups <- pat_levels
+  }
+  
+  # Define colors
+  colors <- list(green='#39B600', yellow='#D89000', red='#F8766D', blue='#00B0F6', 
+                 purple='#9590FF', cyan='#00BFC4', pink='E76BF3', light_pink='#FF62BC',
+                 saturated_green='#00BF7D')
+  
+  # Other
   selected_cols <- c("ID", "Description", "p.adjust")
   dbs <- c('GO', 'KEGG', 'WP', 'Reactome')
   final_markers_df <- markers_df[(markers_df$p_val_adj < top_p_val) & 
@@ -284,7 +297,10 @@ ora_from_DE_results <- function(markers_df, top_n=10, top_logFC = 1,
       ggsave(plot_1, filename = sprintf('tmp/dotplot_%s.pdf', db), width=7, 
              height=9)
       
-      plot_2 <- cnetplot(ck)
+      if (length(groups) == 3){
+        plot_2 <- cnetplot(ck) + 
+          scale_fill_manual(values=c(colors$yellow, colors$red, colors$green))
+      }
       ggsave(plot_2, filename = sprintf('tmp/cnetplot_%s.pdf', db))
       
       
