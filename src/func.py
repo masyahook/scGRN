@@ -794,17 +794,18 @@ def style_data_availability(df):
 
 
 def get_dorothea_mat(data, pat=None):
+    ### FIXME
     """
     Load dorothea TF matrix.
     """
     
-    if pat is None or pat == 'all_data':
+    if pat is None or pat == 'all_data' or pat == 'all':
         
         data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
         
         return pd.read_pickle(
             f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{data_folder}'
-            f'/data/Seurat/pickle/dorothea_data.pickle'
+            f'/data/Seurat/pickle/dorothea_raw_data.pickle'
         )
     
     elif pat in ['C', 'M', 'S']:
@@ -813,7 +814,7 @@ def get_dorothea_mat(data, pat=None):
         
         return pd.read_pickle(
             f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{data_folder}'
-            f'/data/Seurat/pickle/dorothea_data_{pat}_type.pickle'
+            f'/data/Seurat/pickle/dorothea_raw_data_{pat}_type.pickle'
         )
         
     else:
@@ -821,7 +822,7 @@ def get_dorothea_mat(data, pat=None):
         cell_type = '' if (data == 'raw_data' or data == 'all_data') else data.replace('raw_data', '')
         
         return pd.read_pickle(
-            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/dorothea_data{cell_type}.pickle'
+            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/dorothea_raw_data_{cell_type}.pickle'
         )
 
 def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=None):
@@ -832,7 +833,7 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
     filter_suffix = f"_filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
     
-    if pat is None or pat == 'all_data':
+    if pat is None or pat == 'all_data' or pat == 'all':
         
         # Loading cell-type aggregated data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
@@ -878,7 +879,7 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
     data_suffix = 'TF_cor' if data_type == 'TF' else 'TF_ctx' if data_type == 'ctx' else 'cor'
     filter_suffix = f"_filtered_{str(get_filtered).replace('.', '_')}" if get_filtered is not None else ''
     
-    if pat is None or pat == 'all_data':
+    if pat is None or pat == 'all_data' or pat == 'all':
         
         # Loading cell-type aggregated data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types'
