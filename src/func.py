@@ -1673,7 +1673,81 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     # Saving dataframe
     communities_df.to_pickle(data_as)
     print(f"Saved the data to {data_as}!\n")
+    
+    
+def run_enrichr(data, data_type='all', top_n=50, algo='leiden', enrichr_library='BioPlanet_2019'):
+    """
+    Run enrichment analysis with Enrichr.
+    """
         
+    import json
+    import requests
+    import sys
+    import io 
+    
+    algo = 'leiden'
+    _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+
+    if data_type == 'all':
+        community_data = pd.read_pickle(os.path.join(
+            _DATA_HOME, 'cell_types', data, 'data', 'grnboost2', f'{algo}_communities', 
+            f'raw_data_communities_info.pickle'
+        ))
+    else:
+        community_data = pd.read_pickle(os.path.join(
+            _DATA_HOME, 'cell_types', data, 'data', 'grnboost2', f'{algo}_communities', 
+            f'raw_data_{data_type}_type_communities_info.pickle'
+        ))
+
+    df = pd.concat([
+        pd.DataFrame({
+            'cluster': f'cluster_{i}',
+            'gene': [el[: el.find(' ')] for el in vals.split('; ')][:top_n]
+        }) for i, vals in community_data['all_sorted_genes'].iteritems()
+    ], axis=0).reset_index(drop=True)
+
+    cluster_dfs = {}
+    for cl in df['cluster'].unique():
+        
+        print(f'Processing {cl}..')
+
+        ENRICHR_URL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
+        genes_str = '\n'.join(df[df['cluster'] == cl]['gene'])
+        description = f"{data}_{data_type}_{cl}"
+        filename = f'tmp/community_ana/tmp_enrichr_{data}_{data_type}_{cl}.tsv'
+
+        payload = {
+          'list': (None, genes_str),
+          'description': (None, description)
+        }
+        response = requests.post(ENRICHR_URL, files=payload)
+
+        if not response.ok:
+            raise Exception('Error analyzing gene list')
+
+        job_id = json.loads(response.text)
+
+        ################################################################################
+        # Get enrichment results
+        #
+        ENRICHR_URL = 'http://amp.pharm.mssm.edu/Enrichr/export'
+        query_string = '?userListId=%s&filename=%s&backgroundType=%s'
+        user_list_id = str(job_id['userListId'])
+        gene_set_library = str(enrichr_library)
+        url = ENRICHR_URL + query_string % (user_list_id, filename, gene_set_library)
+
+        response = requests.get(url, stream=True)
+
+        print('        Enrichr API : Downloading file of enrichment results: Job Id:', job_id)
+        with open(filename, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+                    
+        cluster_dfs[cl] = pd.read_csv(filename, sep='\t')
+
+    return cluster_dfs
+    
 
 def betweenness_centrality_parallel(G, processes=None):
     """Parallel betweenness centrality  function"""

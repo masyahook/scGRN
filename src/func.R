@@ -27,6 +27,8 @@ compute_ranking <- function(df, rank_type='FC'){
     out <- df['avg_log2FC'] * (-log10(df['p_val_adj']))
     index <- is.infinite(out[['avg_log2FC']])
     out[index, 'avg_log2FC'] <- max(out[['avg_log2FC']][is.finite(out[['avg_log2FC']])], na.rm=T)
+  } else if (rank_type == 'centrality'){
+    out <- df['centrality']
   } else {
     stop(sprintf("rank_type '%s' is incorrect, please change..", rank_type), call.=FALSE)
   }
@@ -193,13 +195,18 @@ gsea_cP <- function(ranked_list, db='ALL', from_mat=T, rank_type='signed_p',
   return(out)
 }
 
-gsea_from_DE_results <- function(markers, top_n=10, db_run='ALL', from_mat=T, 
-                                 rank_type='signed_p', p_value_cutoff=1, ont='BP'){
+run_gsea <- function(markers, is_clusters=F, top_n=10, db_run='ALL', 
+                                 from_mat=T, rank_type='signed_p', 
+                                 p_value_cutoff=1, ont='BP'){
   
   # Setting some params
   selected_cols <- c("ID", "Description", "p.adjust")
   dbs <- c('GO', 'KEGG', 'WP', 'Reactome')
   groups <- unique(markers$cluster)
+  
+  if (is_clusters == T){
+    rank_type <- 'centrality'
+  }
   
   # Running GSEA on each group and saving all results
   all_res <- list()
@@ -208,8 +215,8 @@ gsea_from_DE_results <- function(markers, top_n=10, db_run='ALL', from_mat=T,
     cat(paste0(sprintf("Finding enrichment terms for group: '%s'", group), '\n'))
     group_markers <- markers[markers$cluster == group,]
     all_res[[group]] <- gsea_cP(group_markers, db=db_run, from_mat=from_mat, 
-                              rank_type=rank_type,
-                              p_value_cutoff=p_value_cutoff, ont=ont)
+                              rank_type=rank_type, ont=ont,
+                              p_value_cutoff=p_value_cutoff)
     cat('\n\n')
   }
   
@@ -220,20 +227,25 @@ gsea_from_DE_results <- function(markers, top_n=10, db_run='ALL', from_mat=T,
 
     curr_short_res <- data.frame(row.names=1:top_n)
     for (group in groups){
-
-      # Getting only important info
-      curr <- head(all_res[[group]][[db]]@result[,selected_cols], top_n)
-      colnames(curr) <- lapply(colnames(curr),
-                               function(x) sprintf('%s_%s', x, group))
-
-      # Filling NA the rows if results for current group are insufficient
-      if (nrow(curr) < top_n){
-        tmp_n <- nrow(curr) + 1
-        curr[tmp_n:top_n,] <- NA
+      
+      if (group %in% names(all_res)){
+        if (db %in% names(all_res[[group]])){
+          # Getting only important info
+          curr <- head(all_res[[group]][[db]]@result[,selected_cols], top_n)
+          colnames(curr) <- lapply(colnames(curr),
+                                   function(x) sprintf('%s_%s', x, group))
+          
+          # Filling NA the rows if results for current group are insufficient
+          if (nrow(curr) < top_n){
+            tmp_n <- nrow(curr) + 1
+            curr[tmp_n:top_n,] <- NA
+          }
+          rownames(curr) <- 1:top_n
+          
+          curr_short_res <- cbind(curr_short_res, curr)
+        }
       }
-      rownames(curr) <- 1:top_n
 
-      curr_short_res <- cbind(curr_short_res, curr)
     }
 
     short_res[[db]] <- curr_short_res
@@ -242,39 +254,47 @@ gsea_from_DE_results <- function(markers, top_n=10, db_run='ALL', from_mat=T,
   cat('Done!\n')
 
   out <- list(short=short_res, all=all_res)
-  saveRDS(out, 'tmp/tmp_gsea_from_DE_results.rds')
+  cat("\nSaving results to 'tmp/tmp_gsea.rds'..\n")
+  saveRDS(out, 'tmp/tmp_gsea.rds')
+  cat('Done!\n')
   
   return(out)
 }
 
-ora_from_DE_results <- function(markers_df, top_n=10, top_logFC = 1, 
-                                top_p_val = 0.05, p_value_cutoff=0.05, 
-                                ont='BP', suffix=''){
+run_ora <- function(markers_df, is_clusters=F, top_n=10, 
+                                top_logFC = 1, top_p_val = 0.05, 
+                                p_value_cutoff=0.05, ont='BP', suffix=''){
+  
+  dbs <- c('GO', 'KEGG', 'WP', 'Reactome')
   
   # Setting some params
-  pat_type_levels <- c('C', 'M', 'S')
-  dis_type_levels <- c('H', 'C')
-  new_type_levels <- c('NS', 'S')
-  pat_levels <- c('C51', 'C52', 'C100', 'C141', 'C142', 'C144', 'C143', 'C145', 'C146', 'C148', 'C149', 'C152')
-  if (length(intersect(pat_levels, unique(markers_df$cluster))) == 12){
-    groups <- pat_levels
-  } else if (length(intersect(pat_type_levels, unique(markers_df$cluster))) == 3){
-    groups <- pat_type_levels
-  } else if (length(intersect(dis_type_levels, unique(markers_df$cluster))) == 2){
-    groups <- dis_type_levels
+  if (is_clusters == T){
+    groups <- unique(markers_df$cluster)
+    universe = unique(sort(as.data.frame(org.Hs.egGO)$gene_id))
+    
+    final_markers_df <- markers_df
   } else {
-    groups <- new_type_levels
+    pat_type_levels <- c('C', 'M', 'S')
+    dis_type_levels <- c('H', 'C')
+    new_type_levels <- c('NS', 'S')
+    pat_levels <- c('C51', 'C52', 'C100', 'C141', 'C142', 'C144', 'C143', 'C145', 'C146', 'C148', 'C149', 'C152')
+    if (length(intersect(pat_levels, unique(markers_df$cluster))) == 12){
+      groups <- pat_levels
+    } else if (length(intersect(pat_type_levels, unique(markers_df$cluster))) == 3){
+      groups <- pat_type_levels
+    } else if (length(intersect(dis_type_levels, unique(markers_df$cluster))) == 2){
+      groups <- dis_type_levels
+    } else {
+      groups <- new_type_levels
+    }
+    
+    # Other
+    final_markers_df <- markers_df[(markers_df$p_val_adj < top_p_val) & 
+                                     (markers_df$avg_log2FC > top_logFC),]
+    tmp_universe <- unique(markers_df$gene)
+    universe <- bitr(tmp_universe, fromType = 'SYMBOL', toType = c('ENTREZID'),
+                     OrgDb = org.Hs.eg.db)$ENTREZID
   }
-  
-  # Other
-  selected_cols <- c("ID", "Description", "p.adjust")
-  dbs <- c('GO', 'KEGG', 'WP', 'Reactome')
-  final_markers_df <- markers_df[(markers_df$p_val_adj < top_p_val) & 
-                             (markers_df$avg_log2FC > top_logFC),]
-  
-  tmp_universe <- unique(markers_df$gene)
-  universe <- bitr(tmp_universe, fromType = 'SYMBOL', toType = c('ENTREZID'),
-                  OrgDb = org.Hs.eg.db)$ENTREZID
   
   # Getting gene marker lists
   markers <- list()
@@ -282,8 +302,8 @@ ora_from_DE_results <- function(markers_df, top_n=10, top_logFC = 1,
   for (group in groups){
     tmp_markers <- final_markers_df[final_markers_df$cluster == group,]
     tmp_df <- bitr(tmp_markers$gene, fromType = "SYMBOL",
-                    toType = c("ENTREZID"), 
-                    OrgDb = org.Hs.eg.db)
+                   toType = c("ENTREZID"), 
+                   OrgDb = org.Hs.eg.db)
     markers[[group]] <- tmp_df$ENTREZID
     symbol_markers[[group]] <- tmp_markers$gene
   }
@@ -326,7 +346,8 @@ ora_from_DE_results <- function(markers_df, top_n=10, top_logFC = 1,
       cat(paste0("    Saving figures..", '\n'))
       plot_1 <- dotplot(ck) + theme(axis.text.y = element_text(size = 9)) + 
         labs(y = 'Associated pathways', x = 'Patient type')
-      ggsave(plot_1, filename = sprintf('tmp/dotplot_%s_%s.pdf', suffix, db), width=7, 
+      ggsave(plot_1, filename = sprintf('tmp/dotplot_%s_%s.pdf', suffix, db), 
+             width=7, 
              height=9)
       
       if (length(groups) == 3){
@@ -336,6 +357,9 @@ ora_from_DE_results <- function(markers_df, top_n=10, top_logFC = 1,
       } else if (length(groups) == 2){
         plot_2 <- cnetplot(ck) + 
           scale_fill_manual(values=c(colors$green, colors$yellow))
+        plot_2 <- remove_legend_title(plot_2)
+      } else {
+        plot_2 <- cnetplot(ck)
         plot_2 <- remove_legend_title(plot_2)
       }
       
@@ -351,8 +375,8 @@ ora_from_DE_results <- function(markers_df, top_n=10, top_logFC = 1,
     )
   }
   
-  cat(paste0("\nSaving results..", '\n'))
-  saveRDS(out, sprintf('tmp/tmp_ora_from_DE_results_%s.rds', suffix)) 
+  cat(sprintf("\nSaving results to 'tmp/tmp_ora_%s.rds'..\n", suffix))
+  saveRDS(out, sprintf('tmp/tmp_ora_%s.rds', suffix)) 
   cat('Done!\n')
   
   return(out)
