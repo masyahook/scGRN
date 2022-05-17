@@ -13,12 +13,20 @@ suppressPackageStartupMessages({
   if (version$minor == '2.0'){
     library(ggnewscale)
   }
+  library(stringr)
+  library(reticulate)
 })
+
+pd <- import("pandas")
 
 # Define colors
 colors <- list(green='#39B600', yellow='#D89000', red='#F8766D', blue='#00B0F6', 
                purple='#9590FF', cyan='#00BFC4', pink='E76BF3', light_pink='#FF62BC',
                saturated_green='#00BF7D')
+
+# Define some useful functions
+get_cl_from_tick <- function (x) substr(x, 1, as.integer(gregexpr('\n', x)) - 1)
+cl_name_to_int <- function (x) substr(x, as.integer(gregexpr('_', x)) + 1, nchar(x))
 
 compute_ranking <- function(df, rank_type='FC'){
   if (rank_type == 'FC'){
@@ -262,8 +270,9 @@ run_gsea <- function(markers, is_clusters=F, top_n=10, db_run='ALL',
 }
 
 run_ora <- function(markers_df, is_clusters=F, top_n=10, 
-                                top_logFC = 1, top_p_val = 0.05, 
-                                p_value_cutoff=0.05, ont='BP', suffix=''){
+                    top_logFC = 1, top_p_val = 0.05, 
+                    cell_type_for_community_ana = NaN,
+                    p_value_cutoff=0.05, ont='BP', suffix=''){
   
   dbs <- c('GO', 'KEGG', 'WP', 'Reactome')
   
@@ -336,6 +345,7 @@ run_ora <- function(markers_df, is_clusters=F, top_n=10,
     
     tryCatch({
       
+      
       # Running
       ck <- eval(parse(text=cmd))
       cat('    Success!\n')
@@ -343,9 +353,49 @@ run_ora <- function(markers_df, is_clusters=F, top_n=10,
       # Running the rest of the analysis
       ck <- setReadable(ck, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
       
+      if (is_clusters == T){
+        x_title <- 'Cluster'
+      } else (
+        x_title <- 'Patient type'
+      )
+      
+      if (is_clusters == T){
+        cell_type = str_split(cell_type_for_community_ana, pattern=' ')[[1]][1]
+        data_type <- str_split(cell_type_for_community_ana, pattern=' ')[[1]][2]
+        if (data_type == 'all'){
+          df_name <- 'raw_data_communities_info.pickle'
+        } else {
+          df_name <- sprintf('raw_data_%s_type_communities_info.pickle', data_type)
+        }
+        path_to_df <- sprintf(
+          paste0('/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/%s', 
+                '/data/grnboost2/leiden_communities/%s'),
+          cell_type, df_name
+        )
+        df <- pd$read_pickle(path_to_df)
+        num_nodes_per_cluster <- unlist(df$num_nodes)
+        names(num_nodes_per_cluster) <- lapply(
+          0:(length(num_nodes_per_cluster) - 1), 
+          function(x) sprintf('cluster_%d', x))
+      }
+      
       cat(paste0("    Saving figures..", '\n'))
+      
       plot_1 <- dotplot(ck) + theme(axis.text.y = element_text(size = 9)) + 
-        labs(y = 'Associated pathways', x = 'Patient type')
+        labs(y = 'Associated pathways', x = x_title)
+      if (is_clusters == T){
+        new_xticks <- lapply(ggplot_build(plot_1)$layout$panel_params[[1]]$x.sec$scale$range$range, 
+                            function (x) paste0(cl_name_to_int(get_cl_from_tick(x)), '\n', sprintf('(%s)', num_nodes_per_cluster[[get_cl_from_tick(x)]])))
+        plot_1 <- plot_1 + scale_x_discrete(labels=new_xticks) +
+          theme(axis.text.y = element_text(size = 4), 
+                axis.text.x = element_text(size=8))
+        if (db == 'Reactome'){
+          new_yticks <- lapply(ggplot_build(plot_1)$layout$panel_params[[1]]$y.sec$scale$range$range, 
+                               function (x) substr(x, as.integer(gregexpr(pattern = '\r:', x)) + 3, nchar(x)))
+          plot_1 <- plot_1 + scale_y_discrete(labels=str_wrap(new_yticks, width=25))
+          
+        }
+      }
       ggsave(plot_1, filename = sprintf('tmp/dotplot_%s_%s.pdf', suffix, db), 
              width=7, 
              height=9)

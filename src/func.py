@@ -1031,7 +1031,7 @@ def _get_node_positions(G, node_to_community, node_scale, seed):
 
     return pos
 
-def squeeze_graph(G, partition):
+def squeeze_graph(G, partition, approximate_size=4000):
     """
     Squeeze graph by picking only top nodes (according to number of connections) in each partition. This
     step is needed to speed up the networkx visualization and show only the general POV on the graph.
@@ -1039,8 +1039,7 @@ def squeeze_graph(G, partition):
     
     #### STEP 1 - filtering nodes
     
-    # Setting up the size of the squeezed graph (number of nodes)
-    approximate_size = 4000
+    # Getting the number of partitions
     num_partitions = len(set(partition.values()))
     
     # Getting partition parameters
