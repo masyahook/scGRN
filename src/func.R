@@ -409,11 +409,15 @@ run_ora <- function(markers_df, is_clusters=F, top_n=10,
           scale_fill_manual(values=c(colors$green, colors$yellow))
         plot_2 <- remove_legend_title(plot_2)
       } else {
-        plot_2 <- cnetplot(ck)
+        plot_2 <- cnetplot(ck, cex_label_category=0.8, cex_label_gene=0.6)
+        new_labels <- lapply(ggplot_build(plot_1)$layout$panel_params[[1]]$x.sec$scale$range$range, 
+                             function (x) paste0(cl_name_to_int(get_cl_from_tick(x)), ' ', sprintf('(%s)', num_nodes_per_cluster[[get_cl_from_tick(x)]])))
+        plot_2 <- plot_2 + scale_fill_discrete(labels=new_labels)
         plot_2 <- remove_legend_title(plot_2)
       }
       
-      ggsave(plot_2, filename = sprintf('tmp/cnetplot_%s_%s.pdf', suffix, db))
+      ggsave(plot_2, filename = sprintf('tmp/cnetplot_%s_%s.pdf', suffix, db),
+             width=7, height=7)
       
       
       out[[db]] <- ck
