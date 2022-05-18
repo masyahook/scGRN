@@ -17,8 +17,6 @@ suppressPackageStartupMessages({
   library(reticulate)
 })
 
-pd <- import("pandas")
-
 # Define colors
 colors <- list(green='#39B600', yellow='#D89000', red='#F8766D', blue='#00B0F6', 
                purple='#9590FF', cyan='#00BFC4', pink='E76BF3', light_pink='#FF62BC',
@@ -275,6 +273,7 @@ run_ora <- function(markers_df, is_clusters=F, top_n=10,
                     p_value_cutoff=0.05, ont='BP', suffix=''){
   
   dbs <- c('GO', 'KEGG', 'WP', 'Reactome')
+  pd <- import("pandas")
   
   # Setting some params
   if (is_clusters == T){
@@ -435,6 +434,66 @@ run_ora <- function(markers_df, is_clusters=F, top_n=10,
   
   return(out)
   
+}
+
+ora_for_wordcloud <- function(markers_df, db='Reactome', p_value_cutoff=0.05,
+                              ont='BP'){
+  
+  groups <- unique(markers_df$cluster)
+  universe = unique(sort(as.data.frame(org.Hs.egGO)$gene_id))
+  
+  # Getting gene marker lists
+  markers <- list()
+  symbol_markers <- list()
+  for (group in groups){
+    tmp_markers <- markers_df[markers_df$cluster == group,]
+    tmp_df <- bitr(tmp_markers$gene, fromType = "SYMBOL",
+                   toType = c("ENTREZID"), 
+                   OrgDb = org.Hs.eg.db)
+    markers[[group]] <- tmp_df$ENTREZID
+    symbol_markers[[group]] <- tmp_markers$gene
+  }
+  
+  cat('\n\nProcessing..\n\n\n')
+  cat(paste0(sprintf("Finding enrichment terms for db: '%s'", db), '\n'))
+    
+  if (db == 'GO'){
+    cmd <- sprintf("compareCluster(geneClusters = markers, fun = enrichGO, 
+                           universe = universe, OrgDb = org.Hs.eg.db, 
+                           ont = ont, pvalueCutoff = p_value_cutoff,
+                           qvalueCutoff = p_value_cutoff
+                           )")
+  } else if (db == 'KEGG'){
+    cmd <- sprintf("compareCluster(geneClusters = markers, fun = enrichKEGG,
+                           organism     = 'hsa', universe = universe,
+                           pvalueCutoff = p_value_cutoff)")
+  } else if (db == 'WP'){
+    cmd <- sprintf("compareCluster(geneClusters = markers, fun = enrichWP, 
+                           organism = 'Homo sapiens', universe = universe,
+                           pvalueCutoff = p_value_cutoff)")
+  } else if (db == 'Reactome'){
+    cmd <- sprintf("compareCluster(geneClusters = markers, 
+                           fun = enrichPathway, readable = F,
+                           universe = universe, 
+                           pvalueCutoff = p_value_cutoff)")
+  }
+    
+  tryCatch({
+    
+    # Running
+    ck <- eval(parse(text=cmd))
+    cat('    Success!\n')
+    
+    # Getting the output data
+    ck <- setReadable(ck, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
+    out <- as.data.frame(ck)
+  }, 
+  
+  error = function(e) {
+    cat(sprintf("    Encountered error: '%s' when using %s annotations\n", e, db))
+  }
+  )
+  return(out)
 }
 
 DoMultiBarHeatmap <- function (object, 

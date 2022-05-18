@@ -1240,6 +1240,14 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     
     from joblib import Parallel, delayed
     
+    def highlight_TFs(word, font_size, position, orientation, font_path, random_state):
+        TF_color = (255, 0, 0)  # red
+        if word in lambert_TF_names or word in dorothea_TF_names:
+            return TF_color
+        else:
+            r, g, b, alpha = plt.get_cmap('viridis')(font_size / 120)
+            return (int(r * 255), int(g * 255), int(b * 255))
+    
     print('\nPerforming community analysis..\n\n')
     
     # Setting pathways to files
@@ -1421,13 +1429,14 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
             # Getting current functional annotation
             curr_partition_funcs = partition_funcs[plot_type[plot_type.find('_') + 1:]]
         
-        f, ax = plt.subplots(figsize=(25, 45))
+        f, ax = plt.subplots(figsize=(20, 35))
         
         if plot_type == 'genes':
             wordclouds = {
                 i: WordCloud(
                     max_words=30, min_font_size=15, background_color='white', mask=get_elipsis_mask()
-                ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in norm_partition_genes.items()
+                ).generate_from_frequencies(gene_score_dict).recolor(color_func=highlight_TFs) 
+                    for i, gene_score_dict in norm_partition_genes.items()
             }
         else:
             word_counts = {
@@ -1451,12 +1460,12 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
         print(f'Finished plotting {plot_type} word cloud..')
         
         nx.draw(squeezed_G, squeezed_pos, ax=ax, arrowstyle="->", arrowsize=20, 
-                connectionstyle=f'arc3, rad = 0.25', edge_color='k', width=0.4, 
-                node_color='k', node_size=50, alpha=0.01)
+                connectionstyle=f'arc3, rad = 0.25', edge_color='gray', width=0.4, 
+                node_color='k', node_size=50, alpha=0.02)
         nx.draw_networkx_nodes(squeezed_G, squeezed_pos, ax=ax, node_size=100, 
                                nodelist=list(squeezed_partition.keys()), 
                                node_color=list(squeezed_partition.values()), 
-                               cmap=cmap, alpha=0.01)
+                               cmap=cmap, alpha=0.005)
         print(f'Finished plotting {plot_type} nodes..')
 
         ax.set_title(f'Found communities ({pat}, "all", {data}), '
