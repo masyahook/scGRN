@@ -446,12 +446,19 @@ ora_for_wordcloud <- function(markers_df, db='Reactome', p_value_cutoff=0.05,
   markers <- list()
   symbol_markers <- list()
   for (group in groups){
-    tmp_markers <- markers_df[markers_df$cluster == group,]
-    tmp_df <- bitr(tmp_markers$gene, fromType = "SYMBOL",
-                   toType = c("ENTREZID"), 
-                   OrgDb = org.Hs.eg.db)
-    markers[[group]] <- tmp_df$ENTREZID
-    symbol_markers[[group]] <- tmp_markers$gene
+    tryCatch({
+      tmp_markers <- markers_df[markers_df$cluster == group,]
+      tmp_df <- bitr(tmp_markers$gene, fromType = "SYMBOL",
+                     toType = c("ENTREZID"), 
+                     OrgDb = org.Hs.eg.db)
+      markers[[group]] <- tmp_df$ENTREZID
+      symbol_markers[[group]] <- tmp_markers$gene
+    }, 
+    error = function(e) {
+      cat(sprintf("    Encountered error: '%s' when getting ENTREZ IDs for %s\n", e, group))
+      markers[[group]] <- c()
+      symbol_markers[[group]] <- tmp_markers$gene
+    })
   }
   
   cat('\n\nProcessing..\n\n\n')
