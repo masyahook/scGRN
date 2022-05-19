@@ -267,10 +267,11 @@ run_gsea <- function(markers, is_clusters=F, top_n=10, db_run='ALL',
   return(out)
 }
 
-run_ora <- function(markers_df, is_clusters=F, top_n=10, 
-                    top_logFC = 1, top_p_val = 0.05, 
-                    cell_type_for_community_ana = NaN,
-                    p_value_cutoff=0.05, ont='BP', suffix=''){
+run_ora <- function(markers_df, is_clusters=F, top_n_dotplot = 10, 
+                    top_n_cnetplot = 5, top_logFC = 1, top_p_val = 0.05, 
+                    cell_type_for_community_ana = NaN, ytick_dotplot_size = 8,
+                    xtick_dotplot_size = 8, p_value_cutoff=0.05, ont='BP', 
+                    suffix=''){
   
   dbs <- c('GO', 'KEGG', 'WP', 'Reactome')
   pd <- import("pandas")
@@ -308,12 +309,19 @@ run_ora <- function(markers_df, is_clusters=F, top_n=10,
   markers <- list()
   symbol_markers <- list()
   for (group in groups){
-    tmp_markers <- final_markers_df[final_markers_df$cluster == group,]
-    tmp_df <- bitr(tmp_markers$gene, fromType = "SYMBOL",
-                   toType = c("ENTREZID"), 
-                   OrgDb = org.Hs.eg.db)
-    markers[[group]] <- tmp_df$ENTREZID
-    symbol_markers[[group]] <- tmp_markers$gene
+    tryCatch({
+      tmp_markers <- final_markers_df[final_markers_df$cluster == group,]
+      tmp_df <- bitr(tmp_markers$gene, fromType = "SYMBOL",
+                     toType = c("ENTREZID"), 
+                     OrgDb = org.Hs.eg.db)
+      markers[[group]] <- tmp_df$ENTREZID
+      symbol_markers[[group]] <- tmp_markers$gene
+    }, 
+      error = function(e) {
+        cat(sprintf("    Encountered error: '%s' when getting ENTREZ IDs for %s\n", e, group))
+        markers[[group]] <- c()
+        symbol_markers[[group]] <- tmp_markers$gene
+    })
   }
   
   cat('\n\nProcessing..\n\n\n')
@@ -378,37 +386,39 @@ run_ora <- function(markers_df, is_clusters=F, top_n=10,
           function(x) sprintf('cluster_%d', x))
       }
       
+      if (db == 'Reactome'){
+        ck@compareClusterResult$Description <- lapply(
+          ck@compareClusterResult$Description,
+          function (x) str_replace(x, 'Home Sapiens\r: ', '')
+        )
+      }
+      
       cat(paste0("    Saving figures..", '\n'))
       
-      plot_1 <- dotplot(ck) + theme(axis.text.y = element_text(size = 9)) + 
+      plot_1 <- dotplot(ck, showCategory=top_n_dotplot) + 
+        theme(axis.text.y = element_text(size = 9)) + 
         labs(y = 'Associated pathways', x = x_title)
       if (is_clusters == T){
         new_xticks <- lapply(ggplot_build(plot_1)$layout$panel_params[[1]]$x.sec$scale$range$range, 
                             function (x) paste0(cl_name_to_int(get_cl_from_tick(x)), '\n', sprintf('(%s)', num_nodes_per_cluster[[get_cl_from_tick(x)]])))
         plot_1 <- plot_1 + scale_x_discrete(labels=new_xticks) +
-          theme(axis.text.y = element_text(size = 4), 
-                axis.text.x = element_text(size=8))
-        if (db == 'Reactome'){
-          new_yticks <- lapply(ggplot_build(plot_1)$layout$panel_params[[1]]$y.sec$scale$range$range, 
-                               function (x) substr(x, as.integer(gregexpr(pattern = '\r:', x)) + 3, nchar(x)))
-          plot_1 <- plot_1 + scale_y_discrete(labels=str_wrap(new_yticks, width=25))
-          
-        }
+          theme(axis.text.y = element_text(size = ytick_dotplot_size), 
+                axis.text.x = element_text(size = xtick_dotplot_size))
       }
       ggsave(plot_1, filename = sprintf('tmp/dotplot_%s_%s.pdf', suffix, db), 
              width=7, 
              height=9)
       
       if (length(groups) == 3){
-        plot_2 <- cnetplot(ck) + 
+        plot_2 <- cnetplot(ck, showCategory=top_n_cnetplot) + 
           scale_fill_manual(values=c(colors$green, colors$yellow, colors$red))
         plot_2 <- remove_legend_title(plot_2)
       } else if (length(groups) == 2){
-        plot_2 <- cnetplot(ck) + 
+        plot_2 <- cnetplot(ck, showCategory=top_n_cnetplot) + 
           scale_fill_manual(values=c(colors$green, colors$yellow))
         plot_2 <- remove_legend_title(plot_2)
       } else {
-        plot_2 <- cnetplot(ck, cex_label_category=0.8, cex_label_gene=0.6)
+        plot_2 <- cnetplot(ck, cex_label_category=0.8, cex_label_gene=0.6, showCategory=top_n_cnetplot)
         new_labels <- lapply(ggplot_build(plot_1)$layout$panel_params[[1]]$x.sec$scale$range$range, 
                              function (x) paste0(cl_name_to_int(get_cl_from_tick(x)), ' ', sprintf('(%s)', num_nodes_per_cluster[[get_cl_from_tick(x)]])))
         plot_2 <- plot_2 + scale_fill_discrete(labels=new_labels)
@@ -493,7 +503,18 @@ ora_for_wordcloud <- function(markers_df, db='Reactome', p_value_cutoff=0.05,
     
     # Getting the output data
     ck <- setReadable(ck, OrgDb = org.Hs.eg.db, keyType="ENTREZID")
+    
+    if (db == 'Reactome'){
+      ck@compareClusterResult$Description <- lapply(
+        ck@compareClusterResult$Description, 
+        function (x) str_replace(x, 'Home Sapiens\r: ', '')
+      )
+    }
+    
     out <- as.data.frame(ck)
+    out <- data.frame(
+      Cluster=unlist(out$Cluster), Description=unlist(out$Description)
+    )
   }, 
   
   error = function(e) {
