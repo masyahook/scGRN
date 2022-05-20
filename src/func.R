@@ -389,7 +389,7 @@ run_ora <- function(markers_df, is_clusters=F, top_n_dotplot = 10,
       if (db == 'Reactome'){
         ck@compareClusterResult$Description <- lapply(
           ck@compareClusterResult$Description,
-          function (x) str_replace(x, 'Home Sapiens\r: ', '')
+          function (x) str_replace(x, 'Homo sapiens\r: ', '')
         )
       }
       
