@@ -397,7 +397,8 @@ run_ora <- function(markers_df, is_clusters=F, top_n_dotplot = 10,
       
       plot_1 <- dotplot(ck, showCategory=top_n_dotplot) + 
         theme(axis.text.y = element_text(size = 9)) + 
-        labs(y = 'Associated pathways', x = x_title)
+        labs(y = 'Associated pathways', x = x_title) +
+        scale_color_gradient(limit = c(0, 0.05), high = "blue", low = "red")
       if (is_clusters == T){
         new_xticks <- lapply(ggplot_build(plot_1)$layout$panel_params[[1]]$x.sec$scale$range$range, 
                             function (x) paste0(cl_name_to_int(get_cl_from_tick(x)), '\n', sprintf('(%s)', num_nodes_per_cluster[[get_cl_from_tick(x)]])))

@@ -1683,7 +1683,7 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     print(f"Saved the data to {data_as}!\n")
     
     
-def run_enrichr(data, data_type='all', top_n=50, algo='leiden', enrichr_library='BioPlanet_2019'):
+def run_enrichr(data, is_communities=False, is_positive_markers=True, data_type='all', top_n=50, algo='leiden', enrichr_library='MSigDB_Hallmark_2020'):
     """
     Run enrichment analysis with Enrichr.
     """
@@ -1693,26 +1693,38 @@ def run_enrichr(data, data_type='all', top_n=50, algo='leiden', enrichr_library=
     import sys
     import io 
     
-    algo = 'leiden'
-    _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+    out_folder = 'community_ana' if is_communities else 'cohort_ana'
+    
+    if is_communities == True:
+    
+        algo = 'leiden'
+        _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
 
-    if data_type == 'all':
-        community_data = pd.read_pickle(os.path.join(
-            _DATA_HOME, 'cell_types', data, 'data', 'grnboost2', f'{algo}_communities', 
-            f'raw_data_communities_info.pickle'
-        ))
+        if data_type == 'all':
+            community_data = pd.read_pickle(os.path.join(
+                _DATA_HOME, 'cell_types', data, 'data', 'grnboost2', f'{algo}_communities', 
+                f'raw_data_communities_info.pickle'
+            ))
+        else:
+            community_data = pd.read_pickle(os.path.join(
+                _DATA_HOME, 'cell_types', data, 'data', 'grnboost2', f'{algo}_communities', 
+                f'raw_data_{data_type}_type_communities_info.pickle'
+            ))
+
+        df = pd.concat([
+            pd.DataFrame({
+                'cluster': f'cluster_{i}',
+                'gene': [el[: el.find(' ')] for el in vals.split('; ')][:top_n]
+            }) for i, vals in community_data['all_sorted_genes'].iteritems()
+        ], axis=0).reset_index(drop=True)
+        
     else:
-        community_data = pd.read_pickle(os.path.join(
-            _DATA_HOME, 'cell_types', data, 'data', 'grnboost2', f'{algo}_communities', 
-            f'raw_data_{data_type}_type_communities_info.pickle'
-        ))
-
-    df = pd.concat([
-        pd.DataFrame({
-            'cluster': f'cluster_{i}',
-            'gene': [el[: el.find(' ')] for el in vals.split('; ')][:top_n]
-        }) for i, vals in community_data['all_sorted_genes'].iteritems()
-    ], axis=0).reset_index(drop=True)
+        
+        df = pd.read_csv('/gpfs/home/bsc08/bsc08890/tmp/tf_markers_df.tsv', sep='\t')
+        if is_positive_markers:
+            df = df[(df['p_val_adj'] < 0.05) & (df['avg_log2FC'] > 1)]
+        else:
+            df = df[(df['p_val_adj'] < 0.05) & (df['avg_log2FC'] < -1)]
 
     cluster_dfs = {}
     for cl in df['cluster'].unique():
@@ -1722,7 +1734,7 @@ def run_enrichr(data, data_type='all', top_n=50, algo='leiden', enrichr_library=
         ENRICHR_URL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
         genes_str = '\n'.join(df[df['cluster'] == cl]['gene'])
         description = f"{data}_{data_type}_{cl}"
-        filename = f'tmp/community_ana/tmp_enrichr_{data}_{data_type}_{cl}.tsv'
+        filename = f'tmp/{out_folder}/tmp_enrichr_{data}_{data_type}_{cl}.tsv'
 
         payload = {
           'list': (None, genes_str),
@@ -1751,6 +1763,8 @@ def run_enrichr(data, data_type='all', top_n=50, algo='leiden', enrichr_library=
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
+                    
+        print(f'        Saved to {filename}')
                     
         cluster_dfs[cl] = pd.read_csv(filename, sep='\t')
 
