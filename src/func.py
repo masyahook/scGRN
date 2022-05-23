@@ -793,8 +793,7 @@ def style_data_availability(df):
     return df.style.apply(lambda x: ["background-color: green" if v == '+' else "background-color: red" if v == '-' else 'background: white' for v in x], axis=1)
 
 
-def get_dorothea_mat(data, pat=None):
-    ### FIXME
+def get_viper_mat(data, pat=None, regulon='pyscenic'):
     """
     Load dorothea TF matrix.
     """
@@ -805,7 +804,7 @@ def get_dorothea_mat(data, pat=None):
         
         return pd.read_pickle(
             f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{data_folder}'
-            f'/data/Seurat/pickle/dorothea_raw_data.pickle'
+            f'/data/Seurat/pickle/{regulon}_raw_data.pickle'
         )
     
     elif pat in ['C', 'M', 'S']:
@@ -814,15 +813,15 @@ def get_dorothea_mat(data, pat=None):
         
         return pd.read_pickle(
             f'/gpfs/projects/bsc08/bsc08890/res/covid_19/cell_types/{data_folder}'
-            f'/data/Seurat/pickle/dorothea_raw_data_{pat}_type.pickle'
+            f'/data/Seurat/pickle/{regulon}_raw_data_{pat}_type.pickle'
         )
         
     else:
         
-        cell_type = '' if (data == 'raw_data' or data == 'all_data') else data.replace('raw_data', '')
+        cell_type = '' if (data == 'raw_data' or data == 'all_data') else data.replace('raw_data_', '')
         
         return pd.read_pickle(
-            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/dorothea_raw_data_{cell_type}.pickle'
+            f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/{regulon}_raw_data_{cell_type}.pickle'
         )
 
 def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=None):
@@ -859,7 +858,7 @@ def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         # Loading patient-specific data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
         
-        if data == 'all_data':
+        if data == 'all_data' or data == 'raw_data':
             data = 'raw_data'
         elif 'raw_data_' not in data:
             data = f'raw_data_{data}'
@@ -905,7 +904,7 @@ def get_nx_graph(data, data_type, pat=None, method='grnboost2', get_filtered=Non
         # Loading patient-specific data
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
         
-        if data == 'all_data':
+        if data == 'all_data' or data == 'raw_data':
             data = 'raw_data'
         elif 'raw_data_' not in data:
             data = f'raw_data_{data}'

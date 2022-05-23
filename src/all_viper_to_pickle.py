@@ -25,8 +25,9 @@ def to_pickle(fn):
 
 if __name__ == '__main__':
     
-    parser = argparse.ArgumentParser(description='Save the output of DoRothEA to pickle format, to subsequently speed up loading this file in the network analysis.')
+    parser = argparse.ArgumentParser(description='Save the output of VIPER to pickle format, to subsequently speed up loading this file in the network analysis.')
     parser.add_argument('-a', '--aggregated', type=bool, help='The type of data, cell type aggregated or not', required=True)
+    parser.add_argument('-r', '--regulon', type=str, help='The regulon used', required=True, default='pyscenic')
     args = parser.parse_args()
     
     if not args.aggregated:
@@ -38,7 +39,7 @@ if __name__ == '__main__':
         pat_spec_data_folders = [folder for folder in os.listdir(_DATA_PATH) if folder not in ['cell_types', '.ipynb_checkpoints']]
         _ = [os.makedirs(os.path.join(_DATA_PATH, pat, 'data', 'Seurat', 'pickle'), exist_ok=True) for pat in pat_spec_data_folders]
         data_files = [
-            os.path.join(_DATA_PATH, pat, 'data', 'Seurat', f) for pat in pat_spec_data_folders for f in os.listdir(os.path.join(_DATA_PATH, pat, 'data', 'Seurat')) if f.startswith('dorothea') and f.endswith('.tsv')
+            os.path.join(_DATA_PATH, pat, 'data', 'Seurat', f) for pat in pat_spec_data_folders for f in os.listdir(os.path.join(_DATA_PATH, pat, 'data', 'Seurat')) if f.startswith(args.regulon) and f.endswith('.tsv')
         ]
 
         # Running
@@ -55,7 +56,7 @@ if __name__ == '__main__':
         type_spec_data_folders = [folder for folder in os.listdir(_DATA_PATH) if folder not in ['.ipynb_checkpoints']]
         _ = [os.makedirs(os.path.join(_DATA_PATH, t, 'data', 'Seurat', 'pickle'), exist_ok=True) for t in type_spec_data_folders]
         data_files = [
-            os.path.join(_DATA_PATH, t, 'data', 'Seurat', f) for t in type_spec_data_folders for f in os.listdir(os.path.join(_DATA_PATH, t, 'data', 'Seurat')) if f.startswith('dorothea') and f.endswith('.tsv')
+            os.path.join(_DATA_PATH, t, 'data', 'Seurat', f) for t in type_spec_data_folders for f in os.listdir(os.path.join(_DATA_PATH, t, 'data', 'Seurat')) if f.startswith(args.regulon) and f.endswith('.tsv')
         ]
 
         # Running
