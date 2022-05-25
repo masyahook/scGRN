@@ -31,6 +31,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 scale = lambda x, min_y, max_y: list(MinMaxScaler(feature_range=(min_y, max_y)).fit_transform(np.expand_dims(np.array(x), axis=1))[:, 0])
+scale_int = lambda x, min_y, max_y: [int(el) for el in list(MinMaxScaler(feature_range=(min_y, max_y)).fit_transform(np.expand_dims(np.array(x), axis=1))[:, 0])]
 stopwords = STOPWORDS.union({
     'regulation', 'activity', 'positive', 'negative', 'catabolic', 'process', 'protein', 'complex', 
     'binding', 'response', 'gene', 'genes', 'encoding', 'defining', 'GeneID', 'regulated',
@@ -618,9 +619,14 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
     seed = 42
     alpha = 0.5  
     
-    nodes = nx.draw_networkx_nodes(G, pos, node_color='pink', ax=ax, node_size=node_size)
+    blue = (221 / 256, 232 / 256, 250 / 256)
+    dark_blue = (115 / 256, 141 / 256, 187 / 256)
+    yellow = (253 / 256, 242 / 256, 208 / 256)
+    dark_yellow = (209 / 256, 183 / 256, 101 / 256)
+    
+    nodes = nx.draw_networkx_nodes(G, pos, node_color=yellow, edgecolors=dark_yellow, ax=ax, node_size=node_size)
     if TF_names is not None:
-        nx.draw_networkx_nodes(G.subgraph(TF_names), pos=pos, node_color='limegreen', ax=ax, node_size=node_size)
+        nx.draw_networkx_nodes(G.subgraph(TF_names), pos=pos, node_color=blue, edgecolors=dark_blue, ax=ax, node_size=node_size)
     nx.draw_networkx_labels(G, pos, ax=ax)
     
     if G.edges():
@@ -644,11 +650,11 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
 
         mpl_straight_edges = nx.draw_networkx_edges(
             G, pos, ax=ax, edgelist=edge_meta['straight_edge'], arrowstyle="->", arrowsize=30,
-            edge_color=edge_meta['straight_rho'], edge_cmap=cmap, width=edge_meta['straight_width'], node_size=node_size
+            edge_color=edge_meta['straight_rho'], edge_cmap=cmap, width=edge_meta['straight_width'], node_size=node_size,
         )
         mpl_curved_edges = nx.draw_networkx_edges(
             G, pos, ax=ax, edgelist=edge_meta['curved_edge'], connectionstyle=f'arc3, rad = 0.25', arrowstyle="->", 
-            arrowsize=30, edge_color=edge_meta['curved_rho'], edge_cmap=cmap, width=edge_meta['curved_width'], node_size=node_size
+            arrowsize=30, edge_color=edge_meta['curved_rho'], edge_cmap=cmap, width=edge_meta['curved_width'], node_size=node_size,
         )
         
         if mpl_curved_edges is None:
@@ -659,7 +665,10 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
         if plot_cmap:
             pc = mpl.collections.PatchCollection(mpl_straight_edges + mpl_curved_edges, cmap=cmap)
             pc.set_array(rhos)
-            cbar = plt.colorbar(pc)
+            cbar = plt.colorbar(pc, shrink=0.5)
+            # sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
+            # sm.set_array([])
+            # cbar = plt.colorbar(sm)
             cbar.ax.set_ylabel('Spearman correlation', rotation=270, fontsize=17, labelpad=17)
     
         if label_edges:
@@ -716,7 +725,7 @@ def process_ndex_net(raw_G, G_name, remove_single_nodes=True):
                 node_duplicates[name] = 0
             else:
                 node_duplicates[name] += 1
-            new_name = node_duplicates[name]*'_' + name + node_duplicates[name]*'_'
+            new_name = name + node_duplicates[name]*'*'
             tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
             attrs = {'type': node_info['bel_function_type'], 'full_name': node_info['name']}
             G.add_node(new_name, **attrs)
@@ -738,7 +747,7 @@ def process_ndex_net(raw_G, G_name, remove_single_nodes=True):
                 node_duplicates[name] = 0
             else:
                 node_duplicates[name] += 1
-            new_name = node_duplicates[name]*'_' + name + node_duplicates[name]*'_'
+            new_name = name + node_duplicates[name]*'*'
             tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
             attrs = {'type': 'None', 'full_name': 'None'}
             G.add_node(new_name, **attrs)
@@ -755,7 +764,7 @@ def process_ndex_net(raw_G, G_name, remove_single_nodes=True):
                 node_duplicates[name] = 0
             else:
                 node_duplicates[name] += 1
-            new_name = node_duplicates[name]*'_' + name + node_duplicates[name]*'_'
+            new_name = name + node_duplicates[name]*'*'
             tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
             attrs = {'node_type': node_info['type'], 'full_name': None}
             G.add_node(new_name, **attrs)
@@ -1682,7 +1691,8 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     print(f"Saved the data to {data_as}!\n")
     
     
-def run_enrichr(data, is_communities=False, is_positive_markers=True, data_type='all', top_n=50, algo='leiden', enrichr_library='MSigDB_Hallmark_2020'):
+def run_enrichr(data, is_communities=False, is_positive_markers=True, group_types = 'all', on_targets=False, choose_fixed_tf=None,
+                data_type='all', top_n=50, algo='leiden', enrichr_library='MSigDB_Hallmark_2020'):
     """
     Run enrichment analysis with Enrichr.
     """
@@ -1695,6 +1705,8 @@ def run_enrichr(data, is_communities=False, is_positive_markers=True, data_type=
     out_folder = 'community_ana' if is_communities else 'cohort_ana'
     
     if is_communities == True:
+        
+        print('Running EnrichR on communities..')
     
         algo = 'leiden'
         _DATA_HOME = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
@@ -1719,11 +1731,45 @@ def run_enrichr(data, is_communities=False, is_positive_markers=True, data_type=
         
     else:
         
-        df = pd.read_csv('/gpfs/home/bsc08/bsc08890/tmp/tf_markers_df.tsv', sep='\t')
-        if is_positive_markers:
-            df = df[(df['p_val_adj'] < 0.05) & (df['avg_log2FC'] > 1)]
+        if on_targets:
+            
+            print('Running EnrichR on targets between 3 group types..')
+            
+            types = ['C', 'M', 'S']
+            
+            df = pd.concat([
+                pd.read_csv(
+                    f'/gpfs/home/bsc08/bsc08890/tmp/cohort_ana/tmp_enrichr_{data}_{t}_{choose_fixed_tf}_target_list.tsv', 
+                    header=None, names=['gene']
+                ).assign(cluster=t) for t in types
+            ], axis=0)
+            
         else:
-            df = df[(df['p_val_adj'] < 0.05) & (df['avg_log2FC'] < -1)]
+        
+            if group_types == 'all':
+                print('Running EnrichR on TFs between 3 group types..')
+                df = pd.read_csv(f'/gpfs/home/bsc08/bsc08890/tmp/tf_markers_df_{data}.tsv', sep='\t')
+            else:
+                print('Running EnrichR on 2 group types..')
+                if group_types == 'M_S':
+                    group_types = 'S_M'
+                if group_types == 'C_M':
+                    group_types = 'M_C'
+                if group_types == 'C_S':
+                    group_types = 'S_C'
+                df_1 = pd.read_csv(f'/gpfs/home/bsc08/bsc08890/tmp/tf_markers_df_{group_types}_{data}.tsv', sep='\t')
+                df_1['gene'] = df_1.index
+                df_2 = df_1.copy()
+                df_2['avg_log2FC'] = - df_2['avg_log2FC']
+                df_1['cluster'], df_2['cluster'] = group_types.split('_')
+
+                df = pd.concat([df_1, df_2], axis=0)
+
+
+            if is_positive_markers:
+                df = df[(df['p_val_adj'] < 0.05) & (df['avg_log2FC'] > 1)]
+            else:
+                df = df[(df['p_val_adj'] < 0.05) & (df['avg_log2FC'] < -1)]
 
     cluster_dfs = {}
     for cl in df['cluster'].unique():
@@ -1733,7 +1779,16 @@ def run_enrichr(data, is_communities=False, is_positive_markers=True, data_type=
         ENRICHR_URL = 'http://amp.pharm.mssm.edu/Enrichr/addList'
         genes_str = '\n'.join(df[df['cluster'] == cl]['gene'])
         description = f"{data}_{data_type}_{cl}"
-        filename = f'tmp/{out_folder}/tmp_enrichr_{data}_{data_type}_{cl}.tsv'
+        
+        if is_communities == True:
+            filename = f'tmp/{out_folder}/tmp_enrichr_{data}_{data_type}_{cl}.tsv'
+        elif on_targets:
+            filename = f'tmp/{out_folder}/tmp_enrichr_{data}_{data_type}_{choose_fixed_tf}_target_{cl}.tsv'
+        elif group_types == 'all':
+            filename = f'tmp/{out_folder}/tmp_enrichr_{data}_{data_type}_{cl}.tsv'
+        else:
+            filename = f'tmp/{out_folder}/tmp_enrichr_{data}_2_groups_{cl}.tsv'
+            
 
         payload = {
           'list': (None, genes_str),

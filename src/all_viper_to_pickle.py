@@ -19,8 +19,11 @@ def to_pickle(fn):
     full_pickle_fn = os.path.join(curr_dir, 'pickle', short_pickle_fn)
     
     # Running
-    df = pd.read_csv(fn, sep='\t')
-    df.to_pickle(full_pickle_fn)
+    try:
+        df = pd.read_csv(fn, sep='\t')
+        df.to_pickle(full_pickle_fn)
+    except BaseException as e:
+        print(f'Caught an error for {fn}:\n{e}')
 
 
 if __name__ == '__main__':
