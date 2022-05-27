@@ -273,7 +273,7 @@ run_ora <- function(markers_df, is_clusters=F, top_n_dotplot = 10,
                     xtick_dotplot_size = 8, p_value_cutoff=0.05, ont='BP', 
                     suffix=''){
   
-  dbs <- c('GO', 'KEGG', 'WP', 'Reactome')
+  dbs <- c('Reactome')  # c('GO', 'KEGG', 'WP', 'Reactome')
   pd <- import("pandas")
   
   # Setting some params
@@ -382,7 +382,7 @@ run_ora <- function(markers_df, is_clusters=F, top_n_dotplot = 10,
         df <- pd$read_pickle(path_to_df)
         num_nodes_per_cluster <- unlist(df$num_nodes)
         names(num_nodes_per_cluster) <- lapply(
-          0:(length(num_nodes_per_cluster) - 1), 
+          1:(length(num_nodes_per_cluster)), 
           function(x) sprintf('cluster_%d', x))
       }
       
