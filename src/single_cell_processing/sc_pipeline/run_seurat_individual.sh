@@ -17,6 +17,15 @@ VERB=$8  # e.g. T|F
 ############### Running ##################
 ##########################################
 
+# remembering the current directory, move to the directory of the scripts
+CURRENT_DIR=$(pwd)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+cd $SCRIPT_DIR
+
+# running
 Rscript run_seurat_individual.R -p "$PAT" -m "$META" -o "$OUT" \
   -a "$ANNO" --annotation_folder "$ANNO_F" -s "$SOBJ" \
   --add_figure_objects "$SFOBJ" -v "$VERB"
+  
+# moving back
+cd $CURRENT_DIR

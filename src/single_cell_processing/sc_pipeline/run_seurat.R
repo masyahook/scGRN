@@ -22,6 +22,9 @@ file_path = function(..., fsep = .Platform$file.sep){
   gsub("//", "/", file.path(..., fsep = fsep))
 }
 
+# prevent Rplots.pdf from being generated
+pdf(NULL)
+
 # per-patient execution function
 run <- function(i){
   
@@ -98,7 +101,7 @@ run <- function(i){
   ###################### DIM REDUCTION
   cat("      - Dimensionality reduction\n")
   
-  ## PCA
+  # PCA
   sobj <- RunPCA(object = sobj, features = VariableFeatures(object = sobj), verbose = opt$verbose)
   # loadings
   sobj@misc$plots$pca_loadings <- VizDimLoadings(sobj, dims = 1:4, reduction = "pca")
@@ -258,9 +261,9 @@ run <- function(i){
 option_list = list(
   make_option(c("-m", "--meta_file"), type="character", help="Metadata file", metavar="character"),
   make_option(c("-o", "--outdir"), type="character", help="Output folder", metavar="character"),
-  make_option(c('-n', '--num_proc'), type='integer', help='Number of processes run in parallel', default=6, metavar='integer'),
   make_option(c('-a', '--annotation'), type='character', help='Annotation dataset used to label cells', default='HumanPrimaryCellAtlasData', metavar='character'),
   make_option(c('--annotation_folder'), type='character', help='Folder with saved annotation datasets', default=NULL, metavar='character'),
+  make_option(c('-n', '--num_proc'), type='integer', help='Number of processes run in parallel', default=6, metavar='integer'),
   make_option(c("-s", "--serialize"), type="logical", default=T, help="Save Seurat object", metavar="T|F"),
   make_option(c('--add_figure_objects'), type='logical', default=T, help='Whether to add figure objects to Seurat object', metavar='T|F'),
   make_option(c("-v", "--verbose"), type="logical", default=T, help="Verbose", metavar="T|F")
@@ -280,7 +283,7 @@ if (is.null(opt$outdir) || opt$outdir == ''){
 
 # arbitrary params
 if (is.na(opt$num_proc)){
-  opt$annotation = 6
+  opt$num_proc = 6
 }
 if (opt$annotation == ''){
   opt$annotation = 'HumanPrimaryCellAtlasData'
@@ -300,12 +303,13 @@ cat("***********************************\n")
 cat("*** SINGLE-CELL DATA PROCESSING ***\n")
 cat("***********************************\n\n")
 cat("Outdir: ", opt$outdir, "\n")
-cat("Verbose: ", opt$verbose, "\n")
 cat("Metadata: ", opt$meta_file, "\n")
 cat("Annotation: ", opt$annotation, "\n")
 cat("Annotation folder: ", opt$annotation_folder, "\n")
+cat("Parallelized by: ", opt$num_proc, '\n')
 cat("Serialize output: ", opt$serialize, "\n")
 cat("Save figure objects: ", opt$save_figure_objects, '\n')
+cat("Verbose: ", opt$verbose, "\n")
 
 ###################### LOAD DATA
 
@@ -322,7 +326,7 @@ dir.create(opt$outdir)
 sobjs <- list()
 cell_type_path_meta <- data.frame(row.names=meta$id)
 
-# etting up the cluster for parallel execution
+# setting up the cluster for parallel execution
 cl <- makeCluster(opt$num_proc)
 registerDoParallel(cl)
 
