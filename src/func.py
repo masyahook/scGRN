@@ -608,7 +608,7 @@ def fancy_draw_network_edge_labels(
 
 
 def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
-               if_alpha_edges=False, plot_cmap=True, cmap=plt.cm.plasma):
+               if_alpha_edges=False, plot_cmap=True, cmap=plt.cm.plasma, label_font_size=12):
     """
     Draw GRN using NetworkX.
     
@@ -627,7 +627,7 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
     nodes = nx.draw_networkx_nodes(G, pos, node_color=yellow, edgecolors=dark_yellow, ax=ax, node_size=node_size)
     if TF_names is not None:
         nx.draw_networkx_nodes(G.subgraph(TF_names), pos=pos, node_color=blue, edgecolors=dark_blue, ax=ax, node_size=node_size)
-    nx.draw_networkx_labels(G, pos, ax=ax)
+    nx.draw_networkx_labels(G, pos, ax=ax, font_size=label_font_size)
     
     if G.edges():
     
