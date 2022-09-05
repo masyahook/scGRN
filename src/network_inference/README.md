@@ -22,8 +22,16 @@ To run GRN inference for **TF-target only connections** for a given dataset, ple
   ./infer_GRN.sh <"grnboost2"|"genie3"> <path_to_data> <num_workers> <q_threshold> <logging_folder_path> <path_to_tf_file> <path_to_reg_feature_db> <path_to_motif_annotation_data>
 ```
 
-Alternatively, the user can use custom scripts in `custom_scripts` folder where one can specific the type of data to focus on. For example to run GRN inference for a specific patient, please use:
+Alternatively, the user can use custom scripts in `custom_scripts` folder where one can specify the type of data to focus on. For example, to run GRN inference **for a specific patient**, please use:
 
 ```
-  ./custom_scripts/infer_patient_GRN.sh 
+  ./custom_scripts/infer_pat_GRN.sh <"grnboost2"|"genie3"> <patient_ID> <cell_type_ID> <num_workers> <q_threshold> <path_to_tf_file - if in TF-target mode>
 ```
+
+Similarly, to run GRN inference for **cell type aggregated data**, please use:
+
+```
+  ./custom_scripts/infer_agg_GRN.sh <"grnboost2"|"genie3"> <cell_type_ID> <pat_type_ID> <num_workers> <q_threshold> <path_to_tf_file - if run in TF-target mode>
+```
+
+For more information about arbitrary input parameters and output format please look in the corresponding scripts.

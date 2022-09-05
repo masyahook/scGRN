@@ -1,12 +1,21 @@
 #!/bin/bash
 
+###################################################################
+###################################################################
+#######                                                     #######
+#######  Infer gene regulatory network on one patient data  #######
+#######                                                     #######
+###################################################################
+###################################################################
+
+
 ##########################################
 ############# Input params ###############
 ##########################################
 
 METHOD=$1  # e.g. "grnboost2"|"genie3"
 PATIENT=$2  # e.g. C141
-DATA=$3  # e.g. '' or 'Macrophage' - the data used for chosen patient, could be empty for all cells data
+CELL_TYPE=$3  # e.g. 'all_data' or 'Macrophage' - the cell type data identifier (cell type-specific or just all data)
 NUM_WORKERS=$4  # e.g. 36
 Q_THRESH=$5  # e.g. 0.95 - quantile threshold
 PATH2TFLIST=$6  # e.g. /gpfs/projects/bsc08/bsc08890/data/TF_lists/lambert2018.txt
@@ -19,11 +28,11 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd $SCRIPT_DIR
 
 # Creating suffix for accessing the correct data file
-if [ -z "$DATA" ]
+if [ -z "$CELL_TYPE" ]
 then
-    DATA_SUFFIX=
+    CELL_TYPE_SUFFIX=""
 else
-    DATA_SUFFIX="_${DATA}"
+    CELL_TYPE_SUFFIX="_${CELL_TYPE}"
 fi
 
 # Adding _TF suffix if running only on TFs
@@ -47,30 +56,35 @@ then
 else
     LOG_OUTPUT="/gpfs/projects/bsc08/bsc08890/sbatch/logs"
 fi
+# ----------------------------- #
+#### USER-SPECIFIED CONFIGS #####
 
 DATA_ROOT_DIR="/gpfs/projects/bsc08/bsc08890/res/covid_19"
 DB_NAMES="/gpfs/projects/bsc08/bsc08890/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
 MOTIF_ANNOTATION="/gpfs/projects/bsc08/bsc08890/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl"
 
-PATH2DATA=${DATA_ROOT_DIR}/${PATIENT}/data/Seurat/raw_data${DATA_SUFFIX}.tsv
+#################################
+# ----------------------------- #
+
+PATH2DATA=${DATA_ROOT_DIR}/${PATIENT}/data/Seurat/raw_data${CELL_TYPE_SUFFIX}.tsv
 OUT_DIR=${DATA_ROOT_DIR}/${PATIENT}/data/${METHOD}
 
-GRN_ADJ=${OUT_DIR}/raw_data${DATA_SUFFIX}${TF_SUFFIX}.tsv
-GRN_ADJ_COR=${OUT_DIR}/raw_data${DATA_SUFFIX}${TF_SUFFIX}_cor.tsv
-GRN_ADJ_CTX=${OUT_DIR}/raw_data${DATA_SUFFIX}${TF_SUFFIX}_ctx.tsv
+GRN_ADJ=${OUT_DIR}/raw_data${CELL_TYPE_SUFFIX}${TF_SUFFIX}.tsv
+GRN_ADJ_COR=${OUT_DIR}/raw_data${CELL_TYPE_SUFFIX}${TF_SUFFIX}_cor.tsv
+GRN_ADJ_CTX=${OUT_DIR}/raw_data${CELL_TYPE_SUFFIX}${TF_SUFFIX}_ctx.tsv
 
-LOG_OUT=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}${TF_SUFFIX}${DATA_SUFFIX}_pySCENIC_${METHOD}_${SLURM_JOBID}.out
-LOG_ERR=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}${TF_SUFFIX}${DATA_SUFFIX}_pySCENIC_${METHOD}_${SLURM_JOBID}.err
+LOG_OUT=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}${TF_SUFFIX}${CELL_TYPE_SUFFIX}_pySCENIC_${METHOD}_${SLURM_JOBID}.out
+LOG_ERR=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}${TF_SUFFIX}${CELL_TYPE_SUFFIX}_pySCENIC_${METHOD}_${SLURM_JOBID}.err
 
 ##########################################
-##########################################
+############### Running ##################
 ##########################################
 
 # Creating output folder
 mkdir -p ${DATA_ROOT_DIR}/${PATIENT}/data/${METHOD}
 
 # Creating log files
-printf "Processing ${PATIENT}${DATA_SUFFIX} data stored in ${PATH2DATA}..\n" > $LOG_OUT
+printf "Processing ${PATIENT}${CELL_TYPE_SUFFIX} data stored in ${PATH2DATA}..\n" > $LOG_OUT
 printf "The output will be stored in ${OUT_DIR}..\n\n\n" >> $LOG_OUT
 printf "" > $LOG_ERR
 
