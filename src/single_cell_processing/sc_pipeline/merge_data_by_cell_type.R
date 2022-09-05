@@ -39,9 +39,9 @@ option_list = list(
   make_option(c("-m", "--meta_file"), type="character", help="Metadata file", metavar="character"),  
   make_option(c("-o", "--outdir"), type="character", help="Output folder", metavar="character"),
   make_option(c('-n', '--num_proc'), type='integer', help='Number of processes run in parallel', default=4, metavar='integer'),
-  make_option(c('--use_merged_precomputed'), type='logical', default=T, help='Whether to use pre-computed merged Seurat object', metavar='T|F'),
+  make_option(c('--use_merged_precomputed'), type='logical', default=F, help='Whether to use pre-computed merged Seurat object', metavar='T|F'),
   make_option(c("-s", "--serialize"), type="logical", default=T, help="Save Seurat object", metavar="T|F"),
-  make_option(c("-v", "--verbose"), type="logical", default=T, help="Verbose", metavar="T|F"),
+  make_option(c("-v", "--verbose"), type="logical", default=T, help="Verbose", metavar="T|F")
 )
 opt_parser <- OptionParser(option_list=option_list, add_help_option = T)
 opt <- parse_args(opt_parser)
@@ -73,6 +73,7 @@ cat("*** MERGE DATASETS BY CELL TYPE ***\n")
 cat("***********************************\n\n")
 cat("Outdir: ", opt$outdir, "\n")
 cat("Metadata: ", opt$meta_file, "\n")
+cat("Parallelized by: ", opt$num_proc, '\n')
 cat("Use pre-computed merged Seurat object: ", opt$use_merged_precomputed, "\n")
 cat("Serialize output: ", opt$serialize, "\n")
 cat("Verbose: ", opt$verbose, "\n")

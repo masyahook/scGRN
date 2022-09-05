@@ -8,13 +8,14 @@ from distributed import Client, LocalCluster
 from arboreto.utils import load_tf_names
 from arboreto.algo import grnboost2, genie3
 
+
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Run GRN inference by using GRNBoost2/GENIE3.')
     parser.add_argument('-m', '--method', default='grnboost2', type=str, help='The method used for GRN inference', required=True)
     parser.add_argument('-i', '--in_fn', default='res/PilotWorkflow/data/norm_data.tsv', type=str, help='The filepath to the input expression matrix', required=True)
     parser.add_argument('-o', '--out_fn', type=str, help='The filepath to the output list of link importances', required=True)
-    parser.add_argument('-t', '--tf_fn', type=str, default=None, help='The filepath to the list of transcription factors')
+    parser.add_argument('-t', '--tf_fn', type=str, default=None, help='The filepath to the list of transcription factors, normally kept as None to run on all genes.')
     parser.add_argument('-n', '--num_workers', type=int, default=18, help='The number of workers for parallel execution')
     args = parser.parse_args()
     

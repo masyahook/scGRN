@@ -1,12 +1,7 @@
 import argparse
-import os
 
-from functools import reduce  # for aggregate functions
+from ._post_process import post_process_adj_list
 
-import pandas as pd
-import networkx as nx
-
-from func import post_process_adj_list
 
 if __name__ == '__main__':
     
