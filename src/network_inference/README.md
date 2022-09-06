@@ -34,4 +34,20 @@ Similarly, to run GRN inference for **cell type aggregated data**, please use:
   ./custom_scripts/infer_agg_GRN.sh <"grnboost2"|"genie3"> <cell_type_ID> <pat_type_ID> <num_workers> <q_threshold> <path_to_tf_file - if run in TF-target mode>
 ```
 
+In case the user wants to infer **only TF-target enriched** connections, it is **required** to pass **auxiliary data**:
+
+- A list of transcription factors (`path_to_tf_file` parameter) 
+- Pre-calculated whole-genome rankings (`path_to_reg_feature_db` parameter)
+- Motif annotations (`path_to_motif_annotation_data` parameter)
+
+All these data resources could be obtained from [here](https://resources.aertslab.org/cistarget/). The user could also find additional explanations in the original [`pySCENIC` workflow paper](https://www.nature.com/articles/s41596-020-0336-2#Sec32).
+
+The optimal use of `pySCENIC` package requires careful memory and CPU allocation for each parallelized process. The GRN inference is **memory-heavy** and very high parallelization level could lead to memory overload and stalled processes. The general recommendations regarding choosing `num_workers` parameter (number of parallel processes):
+
+- 8 GB RAM per worker for datasets `num_cells < 10,000`
+- 12 GB RAM per worker for datasets `10,000 < num_cells < 20,000`
+- 16 GB RAM per worker for datasets `num_cells > 20,000`
+
+For example, the execution on a 96 GB RAM node (48 cores x 2 GB RAM) the recommended `num_workers = 8` by default. For high-memory nodes (384 GB RAM = 48 cores x 8 GB RAM): `num_workers = 32`.
+
 For more information about arbitrary input parameters and output format please look in the corresponding scripts.
