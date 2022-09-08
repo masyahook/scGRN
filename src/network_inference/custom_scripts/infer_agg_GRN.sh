@@ -100,7 +100,7 @@ if [ -z "$PATH2TFLIST" ]; then
     printf "Computing adjacencies..\n" >> $LOG_OUT
 
     # Run pySCENIC on all genes
-    python run_pyscenic_on_all_genes.py -m $METHOD -i $PATH2DATA -o $GRN_ADJ --num_workers $NUM_WORKERS 2>> $LOG_ERR 1>> $LOG_OUT && \
+    python ../infer_GRN_on_all_genes.py -m $METHOD -i $PATH2DATA -o $GRN_ADJ --num_workers $NUM_WORKERS 2>> $LOG_ERR 1>> $LOG_OUT && \
     printf "Finished computing adjacencies..\n\n" >> $LOG_OUT || \
     printf "Failed computing adjacencies..\n\n" >> $LOG_OUT
 
@@ -108,7 +108,7 @@ if [ -z "$PATH2TFLIST" ]; then
 
     # Computing the Spearman correlation for all adjacencies
     pyscenic add_cor $GRN_ADJ $PATH2DATA --output $GRN_ADJ_COR --transpose 2>> $LOG_ERR 1>> $LOG_OUT && \
-    python post_proc_net_adj_list.py -f $GRN_ADJ_COR -q $Q_THRESH 2>> $LOG_ERR 1>> $LOG_OUT && \
+    python ../post_proc_net_adj_list.py -f $GRN_ADJ_COR -q $Q_THRESH 2>> $LOG_ERR 1>> $LOG_OUT && \
     printf "Finished computing correlations..\n\n" >> $LOG_OUT || \
     printf "Failed computing correlations..\n\n" >> $LOG_OUT
 
@@ -126,7 +126,7 @@ else
 
     # Computing the Spearman correlation for all adjacencies
     pyscenic add_cor $GRN_ADJ $PATH2DATA --output $GRN_ADJ_COR --transpose 2>> $LOG_ERR 1>> $LOG_OUT && \
-    python post_proc_net_adj_list.py -f $GRN_ADJ_COR -q $Q_THRESH 2>> $LOG_ERR 1>> $LOG_OUT && \
+    python ../post_proc_net_adj_list.py -f $GRN_ADJ_COR -q $Q_THRESH 2>> $LOG_ERR 1>> $LOG_OUT && \
     printf "Finished computing Spearman correlations..\n\n" >> $LOG_OUT || \
     printf "Failed computing Spearman correlations..\n\n" >> $LOG_OUT
 
@@ -134,7 +134,7 @@ else
 
     # Filtering the list of adjacencies by picking only motif-enriched ones
     pyscenic ctx $GRN_ADJ $DB_NAMES --annotations_fname $MOTIF_ANNOTATION --expression_mtx_fname $PATH2DATA --output $GRN_ADJ_CTX --transpose --num_workers $NUM_WORKERS 2>> $LOG_ERR 1>> $LOG_OUT && \
-    python post_proc_net_adj_list.py -f $GRN_ADJ_CTX -q $Q_THRESH 2>> $LOG_ERR 1>> $LOG_OUT && \
+    python ../post_proc_net_adj_list.py -f $GRN_ADJ_CTX -q $Q_THRESH 2>> $LOG_ERR 1>> $LOG_OUT && \
     printf "Finished computing motif-enriched regulons.." >> $LOG_OUT || \
     printf "Failed computing motif-enriched regulons.." >> $LOG_OUT
 fi

@@ -76,7 +76,7 @@ if [ -z "$PATH2TFLIST" ]; then
     printf "Computing adjacencies..\n" >> $LOG_OUT
 
     # Run pySCENIC on all genes
-    python run_pyscenic_on_all_genes.py -m $METHOD -i $PATH2DATA -o $GRN_ADJ --num_workers $NUM_WORKERS 2>> $LOG_ERR 1>> $LOG_OUT && \
+    python infer_GRN_on_all_genes.py -m $METHOD -i $PATH2DATA -o $GRN_ADJ --num_workers $NUM_WORKERS 2>> $LOG_ERR 1>> $LOG_OUT && \
     printf "Finished computing adjacencies..\n\n" >> $LOG_OUT || \
     printf "Failed computing adjacencies..\n\n" >> $LOG_OUT
     
