@@ -1,12 +1,21 @@
 import os
+from typing import Union
 
 import pandas as pd
 from tqdm import tqdm as tqdm_cli
 
 
-def load_gene_func_db_mapping():
+def load_gene_func_db_mapping() -> dict:
     """
     Load downloaded gene function databases like MSigDB, GO, SIGNOR, etc mappings.
+
+    The user can download MSigDB datasets of gene set mappings here:
+    https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp.
+    DoRothEA regulons could be accessed here: https://saezlab.github.io/dorothea/
+
+    The GO annotation was obtained from BioMart: https://www.ensembl.org/biomart/martview/
+
+    return: The file paths to the local database files
     """
 
     path_to_dbs = '/gpfs/projects/bsc08/bsc08890/data/Gene_func_associations'
@@ -31,35 +40,43 @@ def load_gene_func_db_mapping():
     return file_mapping
 
 
-def load_gene_func_db(db, reload=False, as_series=False):
+def load_gene_func_db(db: str, reload: bool = False, as_series: bool = False) -> Union[pd.DataFrame, pd.Series]:
     """
-    Load data from gene function database like MSigDB, GO, DoRothEA, or etc. The output will be in a Pandas Dataframe format.
+    Load data from gene function database like MSigDB, GO, DoRothEA, or etc. The output will be in a Pandas Dataframe
+    format.
+
+    :param db: The db tag - either a short version, or long version
+    :param reload: Only relevant for MSigDB - whether to reload the data from the web or not
+    :param as_series: Only relevant for MSigDB - return as pd.Series with index denoting gene names, and values denoting
+        the functional annotation
+
+    return: Function mapping of the gene set
     """
 
-    def short_to_long_tag(db):
+    def short_to_long_tag(_db):
         """
         Transforming the short annotation db tag to long format.
         """
-        if db == 'GO':
+        if _db == 'GO':
             return 'GO'
-        elif db == 'DoRothEA':
+        elif _db == 'DoRothEA':
             return 'DoRothEA'
-        elif db == 'KEGG':
+        elif _db == 'KEGG':
             return 'MSigDB_curated_gene_sets_c2_cp_kegg'
-        elif db == 'hallmark':
+        elif _db == 'hallmark':
             return 'MSigDB_hallmark_gene_sets_h'
-        elif db == 'reactome':
+        elif _db == 'reactome':
             return 'MSigDB_curated_gene_sets_c2_cp_reactome'
-        elif db == 'wikipathways':
+        elif _db == 'wikipathways':
             return 'MSigDB_curated_gene_sets_c2_cp_wikipathways'
-        elif db == 'immunological':
+        elif _db == 'immunological':
             return 'MSigDB_immunologic_signature_gene_sets_c7_all'
-        elif db == 'curated':
+        elif _db == 'curated':
             return 'MSigDB_curated_gene_sets_c2_all'
-        elif db == 'canonical':
+        elif _db == 'canonical':
             return 'MSigDB_curated_gene_sets_c2_cp'
         else:
-            raise NotImplementedError(f"The tag '{db}' not found in the downloaded databases..")
+            raise NotImplementedError(f"The tag '{_db}' not found in the downloaded databases..")
 
     # Getting the db tag
     db = short_to_long_tag(db)
@@ -70,6 +87,7 @@ def load_gene_func_db(db, reload=False, as_series=False):
 
     if db.startswith('MSigDB'):
 
+        # if reload == True -> download the data from the web, use the local saved version otherwise
         if reload:
 
             # Loading saved data from https://www.gsea-msigdb.org/gsea/msigdb/collections.jsp

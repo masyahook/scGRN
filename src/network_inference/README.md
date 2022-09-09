@@ -42,6 +42,25 @@ In case the user wants to infer **only TF-target enriched** connections, it is *
 
 All these data resources could be obtained from [here](https://resources.aertslab.org/cistarget/). The user could also find additional explanations in the original [`pySCENIC` workflow paper](https://www.nature.com/articles/s41596-020-0336-2#Sec32).
 
+In addition to produced lists of adjacencies that are saved in `.tsv` format, the scripts will also convert the data to `.pickle` format which can be loaded faster during the subsequent analysis. Also, it will filter out low-confident gene connections using quantile filtering (`q_threshold` parameter) and save [`NetworkX`](https://networkx.org) graphs constructed on inferred adjacency lists. All `.pickle` adjacency list files will be stored in corresponding `pickle` folder, while [`NetworkX`](https://networkx.org) graphs in `gpickle` format will be stored in `nx_graph` folder. Overall, the file structure of the outputs (when using `method = grnboost2`):
+
+```bash
+<output_folder>
+|-- data
+|   |-- Seurat
+|   `-- grnboost2
+|       |-- pickle  # unfiltered and filtered adjacency lists in .pickle format
+|       |-- nx_graph  # unfiltered and filtered NetworkX graphs in .gpickle format
+|       |-- <data_name>.tsv
+|       |-- <data_name>_cor.tsv
+|       |-- <data_name>_TF.tsv
+|       |-- <data_name>_TF_cor.tsv
+|       `-- <data_name>_TF_ctx.tsv
+`-- figs
+    |-- Seurat
+    `-- grnboost2
+```
+
 The optimal use of `pySCENIC` package requires careful memory and CPU allocation for each parallelized process. The GRN inference is **memory-heavy** and very high parallelization level could lead to memory overload and stalled processes. The general recommendations regarding choosing `num_workers` parameter (number of parallel processes):
 
 - 8 GB RAM per worker for datasets `num_cells < 10,000`
