@@ -1,2 +1,0 @@
-from ._auxiliary_data import load_gene_func_db, load_gene_func_db_mapping
-from ._data_processing import get_avail_data_mat
