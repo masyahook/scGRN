@@ -44,7 +44,7 @@ All these data resources could be obtained from [here](https://resources.aertsla
 
 In addition to produced lists of adjacencies that are saved in `.tsv` format, the scripts will also convert the data to `.pickle` format which can be loaded faster during the subsequent analysis. Also, it will filter out low-confident gene connections using quantile filtering (`q_threshold` parameter) and save [`NetworkX`](https://networkx.org) graphs constructed on inferred adjacency lists. All `.pickle` adjacency list files will be stored in corresponding `pickle` folder, while [`NetworkX`](https://networkx.org) graphs in `gpickle` format will be stored in `nx_graph` folder. Overall, the file structure of the outputs (when using `method = grnboost2`):
 
-```bash
+```
 <output_folder>
 |-- data
 |   |-- Seurat

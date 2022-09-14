@@ -28,7 +28,7 @@ To run the **full** COVID-19 single cell processing pipeline that processes all 
 
 The pipeline will produce several folders in the `<output_folder>` each corresponding to a patient-specific data, or cell type-specific data. Each patient-specific folder will be labeled by `<patient_ID>`, while cell type-specific folder will be stored in `cell_types` folder. The full file structure is described below:
 
-```bash
+```
 <output_folder>
 |-- <patient_ID_1>
 |   |-- data

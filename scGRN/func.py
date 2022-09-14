@@ -289,100 +289,6 @@ def draw_graph(G, pos, ax, TF_names=None, label_edges=True, node_size=1200,
     
     return ax
 
-
-def process_ndex_net(raw_G, G_name, remove_single_nodes=True):
-    """
-    Process ndex net
-    """
-    
-    import networkx as nx
-    import re
-    
-    G = nx.DiGraph()
-        
-    # Remove empty nodes
-    raw_G.remove_nodes_from([node[0] for node in raw_G.nodes(data=True) if not node[1]])
-    
-    # Define the network type
-    node_0 = list(raw_G.nodes(data=True))[0]
-    if 'bel_function_type' in node_0[1].keys():
-        source = 'causalbionet'
-    elif '__gpml:textlabel' in node_0[1].keys():
-        source = 'wikipathways'
-    else:
-        source = 'signor' 
-        
-    if source == 'causalbionet':
-        tmp_nodes = {}
-        node_duplicates = {}
-        for node_i, node_info in raw_G.nodes(data=True):
-            if ':' in node_info['name']:
-                name = '+'.join(re.findall(r'(?<=\:).+?(?=\))', node_info['name'], re.IGNORECASE))
-            else:
-                name = re.findall(r'(?<=\().+?(?=\))', node_info['name'], re.IGNORECASE)[0]
-            name = name[:name.find(',')] if '(' in name else name
-            if name not in node_duplicates:
-                node_duplicates[name] = 0
-            else:
-                node_duplicates[name] += 1
-            new_name = name + node_duplicates[name]*'*'
-            tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
-            attrs = {'type': node_info['bel_function_type'], 'full_name': node_info['name']}
-            G.add_node(new_name, **attrs)
-        for st_i, end_i, edge_info in raw_G.edges(data=True):
-            st_name, end_name = tmp_nodes[st_i]['new_name'], tmp_nodes[end_i]['new_name']
-            inter = edge_info['interaction']
-            attrs = {'regulation': 'up' if 'increases' in inter.lower() else 'down' if 'decreases' in inter.lower() else None, 'info': inter}
-            G.add_edge(st_name, end_name, **attrs)
-    elif source == 'wikipathways':
-        # Removing empty nodes
-        raw_G.remove_nodes_from([node_i for node_i, node_info in raw_G.nodes(data=True) if 'name' not in node_info])
-        # Removing phosphorus
-        raw_G.remove_nodes_from([node_i for node_i, node_info in raw_G.nodes(data=True) if node_info['name'] == 'P'])
-        tmp_nodes = {}
-        node_duplicates = {}
-        for node_i, node_info in raw_G.nodes(data=True):
-            name = node_info['name']
-            if name not in node_duplicates:
-                node_duplicates[name] = 0
-            else:
-                node_duplicates[name] += 1
-            new_name = name + node_duplicates[name]*'*'
-            tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
-            attrs = {'type': 'None', 'full_name': 'None'}
-            G.add_node(new_name, **attrs)
-        for st_i, end_i, edge_info in raw_G.edges(data=True):
-            st_name, end_name = tmp_nodes[st_i]['new_name'], tmp_nodes[end_i]['new_name']
-            attrs = {'regulation': None, 'info': None}
-            G.add_edge(st_name, end_name, **attrs)
-    elif source == 'signor':
-        tmp_nodes = {}
-        node_duplicates = {}
-        for node_i, node_info in raw_G.nodes(data=True):
-            name = node_info['name']
-            if name not in node_duplicates:
-                node_duplicates[name] = 0
-            else:
-                node_duplicates[name] += 1
-            new_name = name + node_duplicates[name]*'*'
-            tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
-            attrs = {'node_type': node_info['type'], 'full_name': None}
-            G.add_node(new_name, **attrs)
-        for st_i, end_i, edge_info in raw_G.edges(data=True):
-            inter = edge_info['interaction']
-            attrs = {'regulation': 'up' if 'up' in inter.lower() else 'down' if 'down' in inter.lower() else None, 'info': edge_info['mechanism'] if 'mechanism' in edge_info else None}
-            st_name, end_name = tmp_nodes[st_i]['new_name'], tmp_nodes[end_i]['new_name']
-            G.add_edge(st_name, end_name, **attrs)
-    else:
-        raise NameError(f'No identified source for {G_name}')
-        
-    if remove_single_nodes:
-        single_node_sets = list(filter(lambda x: len(x) == 1, nx.weakly_connected_components(G)))
-        single_nodes = reduce(lambda x, y: x.union(y), single_node_sets) if len(single_node_sets) > 0 else set()
-        G.remove_nodes_from(single_nodes)
-
-    return G
-    
     
 def get_tf_targ_ctx(df):
     tf_target_dict = {'TF': [], 'target': [], 'importance': []}
@@ -396,10 +302,6 @@ def get_tf_targ_ctx(df):
         tf_target_dict['target'] += [target_name for target_name, score in target_info]
         tf_target_dict['importance'] += [score for target_name, score in target_info]
     return pd.DataFrame(tf_target_dict)
-
-
-def style_data_availability(df):
-    return df.style.apply(lambda x: ["background-color: green" if v == '+' else "background-color: red" if v == '-' else 'background: white' for v in x], axis=1)
 
 
 def get_viper_mat(data, pat=None, regulon='pyscenic'):
@@ -432,6 +334,7 @@ def get_viper_mat(data, pat=None, regulon='pyscenic'):
         return pd.read_pickle(
             f'/gpfs/projects/bsc08/bsc08890/res/covid_19/{pat}/data/Seurat/pickle/{regulon}_raw_data_{cell_type}.pickle'
         )
+
 
 def get_adj_list(data, data_type, pat=None, method='grnboost2', get_filtered=None):
     """
