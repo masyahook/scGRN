@@ -1,0 +1,13 @@
+id	group	file	num_cells	T_cells	Macrophage	NK_cell	Monocyte	DC	Epithelial_cells	B_cell	Neutrophils	Pre-B_cell_CD34-	CMP	GMP	HSC_-G-CSF	Pro-B_cell_CD34+	BM	Gametocytes	Neurons	Erythroblast	Fibroblasts	Smooth_muscle_cells	Hepatocytes	Keratinocytes	Pro-Myelocyte
+C141	M	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4339769_C141_filtered_feature_bc_matrix.h5	1449.0	932.0	197.0	96.0	86.0	48.0	37.0	33.0	11.0	5.0	3.0	1.0											
+C142	M	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4339770_C142_filtered_feature_bc_matrix.h5	1790.0	996.0	482.0	113.0	67.0	39.0	38.0	20.0	14.0	13.0	3.0	1.0	2.0	1.0	1.0								
+C143	S	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4339771_C143_filtered_feature_bc_matrix.h5	14933.0	1394.0	2048.0	562.0	7489.0	154.0	145.0	72.0	3005.0	33.0	1.0	2.0	24.0	1.0		2.0	1.0						
+C144	M	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4339772_C144_filtered_feature_bc_matrix.h5	452.0	181.0	37.0	34.0	73.0	41.0	54.0	14.0	3.0	8.0	1.0		1.0	1.0	2.0			2.0					
+C145	S	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4339773_C145_filtered_feature_bc_matrix.h5	15550.0	719.0	6960.0	421.0	5616.0	859.0	207.0	58.0	635.0	46.0		2.0	26.0	1.0									
+C146	S	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4339774_C146_filtered_feature_bc_matrix.h5	2545.0	61.0	247.0	14.0	127.0	36.0	417.0	3.0	1632.0				2.0			1.0			2.0	1.0	1.0	1.0	
+C51	C	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4475048_C51_filtered_feature_bc_matrix.h5	9431.0	608.0	8348.0	68.0	70.0	215.0	7.0	9.0		98.0			1.0	3.0	4.0								
+C52	C	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4475049_C52_filtered_feature_bc_matrix.h5	8696.0	13.0	8611.0	5.0	14.0	23.0	25.0	2.0		3.0													
+C100	C	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4475050_C100_filtered_feature_bc_matrix.h5	907.0	411.0	338.0	20.0	51.0	45.0	18.0	12.0		5.0	5.0			2.0									
+C148	S	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4475051_C148_filtered_feature_bc_matrix.h5	1165.0	122.0	98.0	36.0	641.0	24.0	52.0	8.0	178.0		3.0	1.0		1.0		1.0							
+C149	S	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4475052_C149_filtered_feature_bc_matrix.h5	1936.0	681.0	176.0	59.0	691.0	80.0	41.0	38.0	164.0	1.0			5.0										
+C152	S	/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/GSM4475053_C152_filtered_feature_bc_matrix.h5	2557.0	397.0	466.0	74.0	795.0	41.0	201.0	322.0	30.0	174.0		13.0		36.0	7.0								1.0
