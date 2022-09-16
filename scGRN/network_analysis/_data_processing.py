@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 
+import networkx as nx
+
 from ..utils import is_non_empty
 
 
@@ -232,13 +234,13 @@ def get_avail_nx_graphs(
 
 
 def get_avail_nx(
-        d_type: str,
+        net_type: str,
         pat: str
 ) -> pd.Series:
     """
     Get a list of available GRN NetworkX graphs corresponding to `d_type` and `pat`.
 
-    :param d_type: The type of data - could be either:
+    :param net_type: The type of data - could be either:
         'all' (all gene-gene connections)
         'TF' (TF-target connections)
         'ctx' (enriched TF-target connections)
@@ -250,5 +252,275 @@ def get_avail_nx(
     """
 
     avail_Gs = get_avail_nx_graphs()
-    return avail_Gs[d_type].loc[pat].dropna().loc[lambda x: x].index.map(
+    return avail_Gs[net_type].loc[pat].dropna().loc[lambda x: x].index.map(
         lambda x: f'raw_data_{x}' if x != 'all_data' else 'raw_data')
+
+
+def get_sc_data(
+        cell_type: str,
+        pat: str = None,
+        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+) -> pd.DataFrame:
+    """
+    Load scRNA-seq matrix data.
+
+    :param cell_type: The cell type name of the data - could be either:
+        e.g. 'Macrophage', 'T_cells' (the cell type identifier)
+        e.g. 'all_data' (the aggregated data - include all cell type)
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 'raw_data_T_cells'
+            corresponds to the same data as 'T_cells')
+    :param pat: The patient identifier - could be either:
+        e.g. None (include all patients)
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+    :param data_home: The filepath to the data home folder
+
+    :return Pandas dataframe of corresponding VIPER score matrix
+    """
+
+    # Loading data that includes all patients
+    if pat is None or pat == 'all_data' or pat == 'all':
+
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type == 'raw_data' else cell_type.replace('raw_data_', '')
+
+        return pd.read_csv(os.path.join(
+            data_home, data_folder, cell_type, 'Seurat', f'raw_data.tsv'
+        ), sep='\t')
+
+    # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
+    elif pat in ['C', 'M', 'S']:
+
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type == 'raw_data' else cell_type.replace('raw_data_', '')
+
+        return pd.read_csv(os.path.join(
+            data_home, data_folder, cell_type, 'Seurat', f'raw_data_{pat}_type.tsv'
+        ), sep='\t')
+
+    # Loading patient-specific data
+    else:
+
+        # Include all cell types
+        if cell_type == 'all_data' or cell_type == 'raw_data':
+            cell_type = 'raw_data'
+        # Specific cell type
+        else:
+            # Formatting input params for accessing the correct file
+            if 'raw_data_' not in cell_type:
+                cell_type = f'raw_data_{cell_type}'
+
+        return pd.read_csv(os.path.join(
+            data_home, pat, 'data', 'Seurat', f'{cell_type}.tsv'
+        ), sep='\t')
+
+
+def get_viper_mat(
+        cell_type: str,
+        pat: str = None,
+        regulon: str = 'pyscenic',
+        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+) -> pd.DataFrame:
+    """
+    FIXME - fix the path names to the files - outdated script
+    Load VIPER score TF activity matrix.
+
+    :param cell_type: The cell type name of the data - could be either:
+        e.g. 'Macrophage', 'T_cells' (the cell type identifier)
+        e.g. 'all_data' (the aggregated data - include all cell type)
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 'raw_data_T_cells'
+            corresponds to the same data as 'T_cells')
+    :param pat: The patient identifier - could be either:
+        e.g. None (include all patients)
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+    :param regulon: The regulon type, could be either 'pyscenic' (inferred by `pyscenic`) or 'dorothea' (obtained from
+        `DoRothEA` database)
+    :param data_home: The filepath to the data home folder
+
+    :return Pandas dataframe of corresponding VIPER score matrix
+    """
+
+    # Loading data that includes all patients
+    if pat is None or pat == 'all_data' or pat == 'all':
+
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type == 'raw_data' else cell_type.replace('raw_data_', '')
+
+        return pd.read_pickle(os.path.join(
+            data_home, data_folder, cell_type, 'Seurat', 'pickle', f'{regulon}_raw_data.pickle'
+        ))
+
+    # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
+    elif pat in ['C', 'M', 'S']:
+
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type == 'raw_data' else cell_type.replace('raw_data_', '')
+
+        return pd.read_pickle(os.path.join(
+            data_home, data_folder, cell_type, 'Seurat', 'pickle', f'{regulon}_raw_data_{pat}_type.pickle'
+        ))
+
+    # Loading patient-specific data
+    else:
+
+        # Include all cell types
+        if cell_type == 'all_data' or cell_type == 'raw_data':
+            cell_type = 'raw_data'
+        # Specific cell type
+        else:
+            # Formatting input params for accessing the correct file
+            if 'raw_data_' not in cell_type:
+                cell_type = f'raw_data_{cell_type}'
+
+        return pd.read_pickle(os.path.join(
+            data_home, pat, 'data', 'Seurat', 'pickle', f'{regulon}_{cell_type}.pickle'
+        ))
+
+
+def get_adj_list(
+        cell_type: str,
+        net_type: str,
+        pat: str = None,
+        method: str = 'grnboost2',
+        filtered: float = None,
+        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+) -> pd.DataFrame:
+    """
+    Load adjacency list from patient-specific data, or from cell type aggregated data.
+
+    :param cell_type: The cell type name of the data - could be either:
+        e.g. 'Macrophage', 'T_cells' (the cell type identifier)
+        e.g. 'all_data' (the aggregated data - include all cell type)
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 'raw_data_T_cells'
+            corresponds to the same data as 'T_cells')
+    :param net_type: The type of data - could be either:
+        'all' (all gene-gene connections)
+        'TF' (TF-target connections)
+        'ctx' (enriched TF-target connections)
+    :param pat: The patient identifier - could be either:
+        e.g. None (include all patients)
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+    :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
+    :param filtered: The quantile threshold
+    :param data_home: The filepath to the data home folder
+
+    :return Pandas dataframe which represents GRN adjacency list
+    """
+
+    # Formatting input params for accessing the correct file
+    net_suffix = 'TF_cor' if net_type == 'TF' else 'TF_ctx' if net_type == 'ctx' else 'cor'
+    filter_suffix = f"_filtered_{str(filtered).replace('.', '_')}" if filtered is not None else ''
+
+    # Loading data that includes all patients
+    if pat is None or pat == 'all_data' or pat == 'all':
+
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type == 'raw_data' else cell_type.replace('raw_data_', '')
+
+        return pd.read_pickle(os.path.join(
+            data_home, data_folder, 'data', method, 'pickle', f'raw_data_{net_suffix}{filter_suffix}.pickle'
+        ))
+
+    # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
+    elif pat in ['C', 'M', 'S']:
+
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type == 'raw_data' else cell_type.replace('raw_data_', '')
+
+        return pd.read_pickle(os.path.join(
+            data_home, data_folder, 'data', method, 'pickle',
+            f'raw_data_{pat}_type_{net_suffix}{filter_suffix}.pickle'
+        ))
+
+    # Loading patient-specific data
+    else:
+
+        # Include all cell types
+        if cell_type == 'all_data' or cell_type == 'raw_data':
+            cell_type = 'raw_data'
+        # Specific cell type
+        else:
+            # Formatting input params for accessing the correct file
+            if 'raw_data_' not in cell_type:
+                cell_type = f'raw_data_{cell_type}'
+
+        return pd.read_pickle(os.path.join(
+            data_home, pat, 'data', method, 'pickle', f'{cell_type}_{net_suffix}{filter_suffix}.pickle'
+        ))
+
+
+def get_nx_graph(
+        cell_type: str,
+        net_type: str,
+        pat: str = None,
+        method: str = 'grnboost2',
+        filtered: float = None,
+        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+) -> nx.DiGraph:
+    """
+    Load NetworkX graph from patient-specific data, or from cell type aggregated data.
+
+    :param cell_type: The cell type name of the data - could be either:
+        e.g. 'Macrophage', 'T_cells' (the cell type identifier)
+        e.g. 'all_data' (the aggregated data - include all cell type)
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, e.g. 'raw_data_T_cells'
+            corresponds to the same data as 'T_cells')
+    :param net_type: The type of data - could be either:
+        'all' (all gene-gene connections)
+        'TF' (TF-target connections)
+        'ctx' (enriched TF-target connections)
+    :param pat: The patient identifier - could be either:
+        e.g. None (include all patients)
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+    :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
+    :param filtered: The quantile threshold
+    :param data_home: The filepath to the data home folder
+
+    :return NetworkX object of the corresponding GRN
+    """
+
+    # Formatting input params for accessing the correct file
+    net_suffix = 'TF_cor' if net_type == 'TF' else 'TF_ctx' if net_type == 'ctx' else 'cor'
+    filter_suffix = f"_filtered_{str(filtered).replace('.', '_')}" if filtered is not None else ''
+
+    # Loading data that includes all patients
+    if pat is None or pat == 'all_data' or pat == 'all':
+
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type == 'raw_data' else cell_type.replace('raw_data_', '')
+
+        return nx.read_gpickle(os.path.join(
+            data_home, data_folder, 'data', method, 'nx_graph', f'raw_data_{net_suffix}{filter_suffix}.gpickle'
+        ))
+
+    # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
+    elif pat in ['C', 'M', 'S']:
+
+        # Loading patient-type aggregated data
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type == 'raw_data' else cell_type.replace('raw_data_', '')
+
+        return nx.read_gpickle(os.path.join(
+            data_home, data_folder, 'data', method, 'nx_graph',
+            f'raw_data_{pat}_type_{net_suffix}{filter_suffix}.gpickle'
+        ))
+
+    # Loading patient-specific data
+    else:
+
+        # Include all cell types
+        if cell_type == 'all_data' or cell_type == 'raw_data':
+            cell_type = 'raw_data'
+        # Specific cell type
+        else:
+            # Formatting input params for accessing the correct file
+            if 'raw_data_' not in cell_type:
+                cell_type = f'raw_data_{cell_type}'
+
+        return nx.read_gpickle(os.path.join(
+            data_home, pat, 'data', method, 'nx_graph', f'{cell_type}_{net_suffix}{filter_suffix}.gpickle'
+        ))
+
