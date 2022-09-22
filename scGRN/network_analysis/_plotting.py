@@ -9,7 +9,7 @@ from ..utils import _GGPLOT_COLORS as colors
 
 def plot_avail_cell_types(meta: pd.DataFrame, save_as: str = None):
     """
-    Plot the cell type distribution across patients as a heatmap.
+    Plot the cell type count distribution across patients as a heatmap.
 
     :param meta: The metadata data as a Pandas dataframe
     :param save_as: The file path to saved file, None if do not save the plot
