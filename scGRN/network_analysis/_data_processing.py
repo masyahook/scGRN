@@ -2,6 +2,7 @@ import os
 import warnings
 from typing import Union
 
+import numpy as np
 import pandas as pd
 import networkx as nx
 
@@ -95,13 +96,15 @@ def get_avail_sc_data(
 def get_avail_adj_lists(
         data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
         meta_file: str = '/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/metadata.tsv',
-        filtered: float = 0.95
+        method: str = 'grnboost2',
+        filtered: float = 0.95,
 ) -> dict:
     """
     Obtain dictionary containing the information about GRN adjacency list availability.
 
     :param data_home: The filepath to the data home folder
     :param meta_file: The filepath to metadata about patients
+    :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
     :param filtered: The quantile threshold
 
     :return: A dictionary with the following structure:
@@ -138,10 +141,10 @@ def get_avail_adj_lists(
         for pat in data.index[4:]:
             for d in avail_sc_data.loc[pat].dropna().index.to_list():
                 d_fn = f'raw_data_{d}' if d != 'all_data' else 'raw_data'
-                fn = os.path.join(data_home, pat, 'data', 'grnboost2', f'{d_fn}_{net_type_suffix}.tsv')
-                fn_pickled = os.path.join(data_home, pat, 'data', 'grnboost2', 'pickle',
+                fn = os.path.join(data_home, pat, 'data', method, f'{d_fn}_{net_type_suffix}.tsv')
+                fn_pickled = os.path.join(data_home, pat, 'data', method, 'pickle',
                                           f'{d_fn}_{net_type_suffix}.pickle')
-                filtered_fn_pickled = os.path.join(data_home, pat, 'data', 'grnboost2', 'pickle',
+                filtered_fn_pickled = os.path.join(data_home, pat, 'data', method, 'pickle',
                                                    f'{d_fn}_{net_type_suffix}_filtered_{filtered_suffix}.pickle')
                 if is_non_empty(fn) and is_non_empty(fn_pickled) and is_non_empty(filtered_fn_pickled):
                     data.loc[pat, d] = True
@@ -152,10 +155,10 @@ def get_avail_adj_lists(
         for pat in data.index[:4]:
             for d in avail_sc_data.loc[pat].dropna().index.to_list():
                 d_fn = 'raw_data' if pat == 'all_data' else f'raw_data_{pat}_type'
-                fn = os.path.join(data_home, 'cell_types', d, 'data', 'grnboost2', f'{d_fn}_{net_type_suffix}.tsv')
-                fn_pickled = os.path.join(data_home, 'cell_types', d, 'data', 'grnboost2', 'pickle',
+                fn = os.path.join(data_home, 'cell_types', d, 'data', method, f'{d_fn}_{net_type_suffix}.tsv')
+                fn_pickled = os.path.join(data_home, 'cell_types', d, 'data', method, 'pickle',
                                           f'{d_fn}_{net_type_suffix}.pickle')
-                filtered_fn_pickled = os.path.join(data_home, 'cell_types', d, 'data', 'grnboost2', 'pickle',
+                filtered_fn_pickled = os.path.join(data_home, 'cell_types', d, 'data', method, 'pickle',
                                                    f'{d_fn}_{net_type_suffix}_filtered_{filtered_suffix}.pickle')
                 if is_non_empty(fn) and is_non_empty(fn_pickled) and is_non_empty(filtered_fn_pickled):
                     data.loc[pat, d] = True
@@ -168,6 +171,7 @@ def get_avail_adj_lists(
 def get_avail_nx_graphs(
         data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
         meta_file: str = '/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/metadata.tsv',
+        method: str = 'grnboost2',
         filtered: float = 0.95
 ) -> dict:
     """
@@ -175,6 +179,7 @@ def get_avail_nx_graphs(
 
     :param data_home: The filepath to the data home folder
     :param meta_file: The filepath to metadata about patients
+    :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
     :param filtered: The quantile threshold
 
     :return: A dictionary with the following structure:
@@ -211,8 +216,8 @@ def get_avail_nx_graphs(
         for pat in data.index[4:]:
             for d in avail_sc_data.loc[pat].dropna().index.to_list():
                 d_fn = f'raw_data_{d}' if d != 'all_data' else 'raw_data'
-                fn = os.path.join(data_home, pat, 'data', 'grnboost2', 'nx_graph', f'{d_fn}_{net_type_suffix}.gpickle')
-                fn_filtered = os.path.join(data_home, pat, 'data', 'grnboost2', 'nx_graph',
+                fn = os.path.join(data_home, pat, 'data', method, 'nx_graph', f'{d_fn}_{net_type_suffix}.gpickle')
+                fn_filtered = os.path.join(data_home, pat, 'data', method, 'nx_graph',
                                            f'{d_fn}_{net_type_suffix}_filtered_{filtered_suffix}.gpickle')
                 if is_non_empty(fn) and is_non_empty(fn_filtered):
                     data.loc[pat, d] = True
@@ -223,9 +228,9 @@ def get_avail_nx_graphs(
         for pat in data.index[:4]:
             for d in avail_sc_data.loc[pat].dropna().index.to_list():
                 d_fn = 'raw_data' if pat == 'all_data' else f'raw_data_{pat}_type'
-                fn = os.path.join(data_home, 'cell_types', d, 'data', 'grnboost2', 'nx_graph',
+                fn = os.path.join(data_home, 'cell_types', d, 'data', method, 'nx_graph',
                                   f'{d_fn}_{net_type_suffix}.gpickle')
-                fn_filtered = os.path.join(data_home, 'cell_types', d, 'data', 'grnboost2', 'nx_graph',
+                fn_filtered = os.path.join(data_home, 'cell_types', d, 'data', method, 'nx_graph',
                                            f'{d_fn}_{net_type_suffix}_filtered_{filtered_suffix}.gpickle')
                 if is_non_empty(fn) and is_non_empty(fn_filtered):
                     data.loc[pat, d] = True
@@ -238,7 +243,7 @@ def get_avail_nx_graphs(
 def get_avail_nx(
         net_type: str,
         pat: str,
-        as_data_fn: True
+        as_data_fn: bool = True
 ) -> list:
     """
     Get a list of available GRN NetworkX graphs corresponding to `net_type` and `pat`.
@@ -332,14 +337,42 @@ def get_sc_data(
         return data
     except FileNotFoundError:
         if tolerate_missing:
-            warnings.warn(f'The GRN for pat="{pat}", cell_type="{cell_type}", net_type="{net_type}" is not found '
+            warnings.warn(f'The single-cell data not found for pat="{pat}", cell_type="{cell_type}" '
                           f'(should be at "{fn}"). Returning as `None` instead!')
             return None
         else:
             raise FileNotFoundError(
-                f'The GRN for pat={pat}, cell_type={cell_type}, net_type={net_type} is not found '
+                f'The single-cell data not found for pat="{pat}", cell_type="{cell_type}" '
                 f'(should be at "{fn}")..'
             )
+
+
+def get_num_cells(pat: str, cell_type: str, meta: pd.DataFrame) -> int:
+    """
+    Get number of cells present in the corresponding scRNA-seq dataset.
+    :param cell_type: The cell type name of the data - could be either:
+        e.g. 'Macrophage', 'T_cells' (the cell type identifier)
+        e.g. 'all', 'all_data' (the aggregated data - include all cell types)
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 'raw_data_T_cells'
+            corresponds to the same data as 'T_cells')
+    :param pat: The patient identifier - could be either:
+        e.g. None (include all patients)
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+    :param meta: The dataframe containing metadata about patients (cell count, patient types, file paths)
+    :return: The number of cells
+    """
+    if pat is None or pat == 'all' or pat == 'all_data':
+        curr_meta = meta
+    elif pat in ['C', 'M', 'S']:
+        curr_meta = meta[meta['group'] == pat]
+    else:
+        curr_meta = meta.loc[pat]
+    if cell_type == 'all' or cell_type == 'all_data' or cell_type == 'raw_data':
+        col_key = 'num_cells'
+    else:
+        col_key = cell_type.replace("raw_data_", "")
+    return int(curr_meta[col_key]) if isinstance(curr_meta[col_key], (int, float)) else int(curr_meta[col_key].sum())
 
 
 def get_viper_mat(
@@ -413,12 +446,12 @@ def get_viper_mat(
         return mat
     except FileNotFoundError:
         if tolerate_missing:
-            warnings.warn(f'The GRN for pat="{pat}", cell_type="{cell_type}", net_type="{net_type}" is not found '
+            warnings.warn(f'The VIPER matrix not found for pat="{pat}", cell_type="{cell_type}" '
                           f'(should be at "{fn}"). Returning as `None` instead!')
             return None
         else:
             raise FileNotFoundError(
-                f'The GRN for pat={pat}, cell_type={cell_type}, net_type={net_type} is not found '
+                f'The VIPER matrix not found for pat="{pat}", cell_type="{cell_type}" '
                 f'(should be at "{fn}")..'
             )
 
@@ -605,3 +638,117 @@ def get_nx_graph(
                 f'(should be at "{fn}")..'
             )
 
+
+def _compute_graph_stats(
+        curr_pat_: str,
+        curr_ctype_: str,
+        curr_ntype_: str,
+        _meta: pd.DataFrame,
+        _q_thresh: float
+) -> dict:
+    """
+    Compute graph statistics for given patient, cell type and net type.
+
+    :param curr_ctype_: The cell type name of the data - could be either:
+        e.g. 'Macrophage', 'T_cells' (the cell type identifier)
+        e.g. 'all', 'all_data' (the aggregated data - include all cell types)
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, e.g. 'raw_data_T_cells'
+            corresponds to the same data as 'T_cells')
+    :param curr_ntype_: The type of data - could be either:
+        'all' (all gene-gene connections)
+        'TF' (TF-target connections)
+        'ctx' (enriched TF-target connections)
+    :param curr_pat_: The patient identifier - could be either:
+        e.g. None (include all patients)
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+    :param _meta: The dataframe containing metadata about patients (cell count, patient types, file paths)
+    :param _q_thresh: The quantile threshold
+
+    :return: A dictionary containing computed graph properties
+    """
+
+    import igraph as ig
+
+    out = {}
+    try:
+        full_G = get_nx_graph(curr_ctype_, curr_ntype_, pat=curr_pat_,
+                              filtered=_q_thresh, tolerate_missing=False)
+        if not nx.is_connected(full_G.to_undirected()):
+            Gcc = sorted(nx.connected_components(full_G.to_undirected()), key=len, reverse=True)
+            G_biggest = full_G.subgraph(Gcc[0])
+        else:
+            G_biggest = full_G
+        G_igraph = ig.Graph.from_networkx(G_biggest.to_undirected())
+        out = {
+            'num_nodes': full_G.number_of_nodes(),
+            'num_edges': full_G.number_of_edges(),
+            'num_cells': get_num_cells(curr_pat_, curr_ctype_, _meta),
+            'average_degree': np.mean([degree for node, degree in full_G.degree(full_G.nodes())]),
+            'radius': G_igraph.radius(),
+            'average_path_length': G_igraph.average_path_length(),
+            'diameter': G_igraph.diameter(),
+            'importances': [info['importance'] for st, end, info in full_G.edges(data=True)],
+            'rhos': [info['rho'] for st, end, info in full_G.edges(data=True)],
+            'median_importance': np.median([info['importance'] for st, end, info in full_G.edges(data=True)]),
+            'median_rho': np.median([info['rho'] for st, end, info in full_G.edges(data=True)]),
+            'STD_importance': np.std([info['importance'] for st, end, info in full_G.edges(data=True)]),
+            'STD_rho': np.std([info['rho'] for st, end, info in full_G.edges(data=True)]),
+            'tfs': set([st for st, _, _ in full_G.edges(data=True)]),
+            'num_tfs': len(set([st for st, _, _ in full_G.edges(data=True)]))
+        }
+    except BaseException as e:
+        warnings.warn(f'Caught an error with the message:\n{e}')
+
+    return out
+
+
+def get_graph_stats(meta: pd.DataFrame, n_jobs: int, filtered: float = None) -> dict:
+    """
+    Compute statistics of graph properties with available GRNs.
+
+    :param meta: The dataframe containing metadata about patients (cell count, patient types, file paths)
+    :param n_jobs: The number of parallel executions
+    :param filtered: The quantile threshold or None, if not to use filtered GRN
+
+    :return: A dictionary containing computed graph properties for all available GRNs
+    """
+
+    from joblib import Parallel, delayed
+    import itertools
+
+    n_types = ['all', 'ctx']  # computing only for these types of networks
+
+    def chunks(lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
+
+    stat_types = [
+        'num_nodes', 'num_edges', 'num_cells', 'average_degree', 'radius',
+        'average_path_length', 'diameter', 'importances', 'rhos',
+        'median_importance', 'median_rho', 'STD_importance', 'STD_rho',
+        'tfs', 'num_tfs'
+    ]
+    num_all_sets = get_avail_nx_graphs()['all'].sum().sum()
+
+    # Computing statistics in parallel
+    all_out = Parallel(n_jobs=n_jobs)(
+        delayed(_compute_graph_stats)(_pat, _ctype, _ntype, meta, filtered) for _ntype in n_types
+        for _pat in get_avail_nx_graphs()[_ntype].index
+        for _ctype in get_avail_nx(_ntype, _pat)
+    )
+    graph_stats = {
+        _ntype: {
+            curr_stat_type: [
+                tmp_dict[curr_stat_type] for tmp_dict in el if len(tmp_dict) != 0
+            ] for curr_stat_type in stat_types
+        } for _ntype, el in zip(n_types, chunks(all_out, num_all_sets))
+    }
+
+    # Concatenating lists together
+    for _n_type in n_types:
+        graph_stats[_n_type]['importances'] = list(itertools.chain(*graph_stats[_n_type]['importances']))
+        graph_stats[_n_type]['rhos'] = list(itertools.chain(*graph_stats[_n_type]['rhos']))
+
+    return graph_stats

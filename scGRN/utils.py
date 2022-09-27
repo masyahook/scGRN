@@ -13,6 +13,10 @@ from sklearn.preprocessing import MinMaxScaler
 _GGPLOT_COLORS = dict(green='#39B600', yellow='#D89000', red='#F8766D', blue='#00B0F6',
                       purple='#9590FF', cyan='#00BFC4', pink='E76BF3', light_pink='#FF62BC',
                       saturated_green='#00BF7D')
+# Setting up constant parameters
+_SEED = 42  # random seed
+_NODE_SIZE = 1200  # the node size when plotting
+_ALPHA = 0.5  # transparency of the nodes/edges when plotting
 
 
 def scale(
