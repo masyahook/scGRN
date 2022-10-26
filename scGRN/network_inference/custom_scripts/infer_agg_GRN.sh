@@ -30,9 +30,10 @@ cd $SCRIPT_DIR
 # ----------------------------- #
 #### USER-SPECIFIED CONFIGS #####
 
-DATA_ROOT_DIR="/gpfs/projects/bsc08/bsc08890/res/covid_19"
-DB_NAMES="/gpfs/projects/bsc08/bsc08890/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
-MOTIF_ANNOTATION="/gpfs/projects/bsc08/bsc08890/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl"
+PROJ_HOME="/gpfs/projects/bsc08/shared_projects/scGRN_analysis"
+DATA_ROOT_DIR="${PROJ_HOME}/Data_home/res/covid_19"
+DB_NAMES="${PROJ_HOME}/Data_home/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
+MOTIF_ANNOTATION="${PROJ_HOME}/Data_home/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl"
 
 #################################
 # ----------------------------- #
@@ -62,9 +63,9 @@ fi
 # Defining directory of logs
 if [ "$RUN_TYPE" == "GREASY" ]
 then
-    LOG_OUTPUT="/gpfs/projects/bsc08/bsc08890/sbatch/greasy/logs"
+    LOG_OUTPUT="${PROJ_HOME}/sbatch/greasy/logs"
 else
-    LOG_OUTPUT="/gpfs/projects/bsc08/bsc08890/sbatch/logs"
+    LOG_OUTPUT="${PROJ_HOME}/sbatch/logs"
 fi
 
 PATH2DATA=${DATA_ROOT_DIR}/cell_types/${CELL_TYPE}/data/Seurat/raw_data${PAT_SUFFIX}.tsv
@@ -81,8 +82,9 @@ LOG_ERR=${LOG_OUTPUT}/${CELL_TYPE}${TASK_NUM}${TF_SUFFIX}${PAT_SUFFIX}_${METHOD}
 ############### Running ##################
 ##########################################
 
-# Creating output folder, and folder for temporary dask files
+# Creating output folder, logging folder, and folder for temporary dask files
 mkdir -p ${DATA_ROOT_DIR}/cell_types/${CELL_TYPE}/data/${METHOD}
+mkdir -p ${LOG_OUTPUT}
 export DASK_TEMPORARY_DIRECTORY="/tmp/GRN_inference_dask_${SLURM_JOBID}"
 mkdir -p $DASK_TEMPORARY_DIRECTORY
 
