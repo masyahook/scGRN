@@ -7,11 +7,11 @@ import pandas as pd
 import networkx as nx
 
 from ..utils import is_non_empty
-
+from ..config import _DATA_HOME, _META_FILE
 
 def get_meta(
-        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
-        meta_file: str = '/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/metadata.tsv'
+        data_home: str = _DATA_HOME,
+        meta_file: str = _META_FILE
 ) -> pd.DataFrame:
     """
     Obtain metadata information about the patients.
@@ -39,8 +39,8 @@ def get_meta(
 
 
 def get_avail_sc_data(
-        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
-        meta_file: str = '/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/metadata.tsv'
+        data_home: str = _DATA_HOME,
+        meta_file: str = _META_FILE
 ) -> pd.DataFrame:
     """
     Obtain dataframe that contains the information about the scRNA-seq matrix data availability.
@@ -93,9 +93,34 @@ def get_avail_sc_data(
     return avail_sc_data
 
 
+def get_avail_pat_sc(
+        pat: str,
+        as_data_fn: bool = True
+) -> list:
+    """
+    Get a list of available scRNA-seq datasets corresponding to `pat`.
+
+    :param pat: The patient identifier - could be either:
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data' (the identifier of aggregated patient data)
+    :param as_data_fn: Return list of data file names or just cell type names:
+        True - ['raw_data', 'raw_data_Macrophage', 'raw_data_T_cells', ... ]
+        False - ['all_data', 'Macrophage', 'T_cells', ... ]
+
+    :return: A list of available data files corresponding to `net_type` and `pat`
+    """
+
+    avail_sc = get_avail_sc_data()
+    cell_types = avail_sc.loc[pat].dropna().loc[lambda x: x].index
+    if as_data_fn:
+        return cell_types.map(lambda x: f'raw_data_{x}' if x != 'all_data' else 'raw_data').to_list()
+    else:
+        return cell_types.to_list()
+
+
 def get_avail_adj_lists(
-        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
-        meta_file: str = '/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/metadata.tsv',
+        data_home: str = _DATA_HOME,
+        meta_file: str = _META_FILE,
         method: str = 'grnboost2',
         filtered: float = 0.95,
 ) -> dict:
@@ -169,8 +194,8 @@ def get_avail_adj_lists(
 
 
 def get_avail_nx_graphs(
-        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
-        meta_file: str = '/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/metadata.tsv',
+        data_home: str = _DATA_HOME,
+        meta_file: str = _META_FILE,
         method: str = 'grnboost2',
         filtered: float = 0.95
 ) -> dict:
@@ -240,7 +265,7 @@ def get_avail_nx_graphs(
     return avail_nx_graphs
 
 
-def get_avail_nx(
+def get_avail_pat_nx(
         net_type: str,
         pat: str,
         as_data_fn: bool = True
@@ -273,7 +298,7 @@ def get_avail_nx(
 def get_sc_data(
         cell_type: str,
         pat: str = None,
-        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
+        data_home: str = _DATA_HOME,
         tolerate_missing: bool = True
 ) -> Union[pd.DataFrame, None]:
     """
@@ -379,7 +404,7 @@ def get_viper_mat(
         cell_type: str,
         pat: str = None,
         regulon: str = 'pyscenic',
-        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
+        data_home: str = _DATA_HOME,
         tolerate_missing: bool = True
 ) -> Union[pd.DataFrame, None]:
     """
@@ -462,7 +487,7 @@ def get_adj_list(
         pat: str = None,
         method: str = 'grnboost2',
         filtered: float = None,
-        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
+        data_home: str = _DATA_HOME,
         tolerate_missing: bool = True
 ) -> Union[pd.DataFrame, None]:
     """
@@ -553,7 +578,7 @@ def get_nx_graph(
         pat: str = None,
         method: str = 'grnboost2',
         filtered: float = None,
-        data_home: str = '/gpfs/projects/bsc08/bsc08890/res/covid_19',
+        data_home: str = _DATA_HOME,
         tolerate_missing: bool = True
 ) -> Union[nx.DiGraph, None]:
     """

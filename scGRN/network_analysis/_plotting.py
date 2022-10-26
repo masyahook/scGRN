@@ -8,8 +8,9 @@ from matplotlib.transforms import Bbox
 from matplotlib.axes import Axes
 from matplotlib.colors import ListedColormap
 
-from ..utils import _GGPLOT_COLORS as colors
-from ..utils import _SEED, _NODE_SIZE, _ALPHA, scale
+from ..config import _GGPLOT_COLORS as colors
+from ..config import _NODE_SIZE, _ALPHA
+from ..utils import scale
 
 
 def plot_avail_cell_types(meta: pd.DataFrame, save_as: str = None):
