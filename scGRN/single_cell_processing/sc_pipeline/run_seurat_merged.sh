@@ -29,7 +29,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd $SCRIPT_DIR
 
 # running
-Rscript merge_data_by_cell_type.R -m "$META" -o "$OUT" -n "$N_PROC" \
+Rscript run_seurat_merged.R -m "$META" -o "$OUT" -n "$N_PROC" \
   --use_merged_precomputed "$PRE_MERGED" -s "$SOBJ" -v "$VERB"
 
 # moving back

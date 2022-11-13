@@ -66,26 +66,6 @@ if (is.na(opt$verbose)){
   opt$verbose = F
 }
 
-###################### LOAD DATA
-
-# read metadata
-meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F)
-
-# set up working directories
-opt$outdir <- file_path(opt$outdir, opt$pat)
-opt$outdat <- file_path(opt$outdir, "data/Seurat")
-opt$outfig <- file_path(opt$outdir, "figs/Seurat")
-opt$patpath <- meta[which(meta$id == opt$pat),]$file
-
-# create working directories
-dir.create(opt$outdir, recursive=T)
-dir.create(opt$outdat, recursive=T)
-dir.create(opt$outfig, recursive=T)
-
-# delete previously generated files
-invisible(file.remove(list.files(opt$outdat, full.names = T, recursive = T)))
-invisible(file.remove(list.files(opt$outfig, full.names = T, recursive = T)))
-
 cat("\n\n")
 cat("**********************************************************\n")
 cat("*** SINGLE-CELL DATA PROCESSING FOR INDIVIDUAL PATIENT ***\n")
@@ -98,6 +78,26 @@ cat("Annotation folder: ", opt$annotation_folder, "\n")
 cat("Serialize output: ", opt$serialize, "\n")
 cat("Save figure objects: ", opt$save_figure_objects, '\n')
 cat("Verbose: ", opt$verbose, "\n")
+
+###################### LOAD DATA
+
+# read metadata
+meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F)
+
+# set up working directories
+opt$outpat <- file_path(opt$outdir, opt$pat)
+opt$outdat <- file_path(opt$outpat, "data/Seurat")
+opt$outfig <- file_path(opt$outpat, "figs/Seurat")
+opt$patpath <- meta[which(meta$id == opt$pat),]$file
+
+# create working directories
+dir.create(opt$outpat, recursive=T, showWarnings = F)
+dir.create(opt$outdat, recursive=T, showWarnings = F)
+dir.create(opt$outfig, recursive=T, showWarnings = F)
+
+# delete previously generated files
+# invisible(file.remove(list.files(opt$outdat, full.names = T, recursive = T)))
+# invisible(file.remove(list.files(opt$outfig, full.names = T, recursive = T)))
 
 ###################### LOAD DATA
 cat("      - Init\n")

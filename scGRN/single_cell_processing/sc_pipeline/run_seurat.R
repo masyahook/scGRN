@@ -43,15 +43,15 @@ run <- function(i){
   
   # create sample directory
   sample_dir <- file_path(opt$outdir, meta$id[i])
-  dir.create(sample_dir, showWarnings = F)
+  dir.create(sample_dir, recursive = T, showWarnings = F)
   sample_fig_dir <- file_path(sample_dir, 'figs/Seurat')
-  dir.create(sample_fig_dir, showWarnings = F, recursive=T)
+  dir.create(sample_fig_dir, recursive = T, showWarnings = F)
   sample_data_dir <- file_path(sample_dir, 'data/Seurat')
-  dir.create(sample_data_dir, showWarnings = F, recursive=T)
+  dir.create(sample_data_dir, recursive = T, showWarnings = F)
   
   # Delete previously generated files
-  file.remove(list.files(sample_data_dir, full.names = T, recursive = T))
-  file.remove(list.files(sample_fig_dir, full.names = T, recursive = T))
+  # file.remove(list.files(sample_data_dir, full.names = T, recursive = T))
+  # file.remove(list.files(sample_fig_dir, full.names = T, recursive = T))
   
   sobj@misc$plots <- list()
   
@@ -320,7 +320,7 @@ pat_types <- meta$group
 names(pat_types) <- meta$id
 
 # create working directory
-dir.create(opt$outdir)
+dir.create(opt$outdir, recursive = T, showWarnings = F)
 
 # process samples
 sobjs <- list()

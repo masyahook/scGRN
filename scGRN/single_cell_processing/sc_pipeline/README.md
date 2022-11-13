@@ -17,7 +17,7 @@ This will process scRNA-seq matrix for the patient `<patient_ID>`. To run the Se
 After running `single_cell_processing_individual.R` and processing each patient data separately, the next task is to merge patient data *cell type-wise* (e.g. all T cells from all patients into one dataset) to subsequently obtain gene regulatory networks for each *cell type*. Please use in the simplest case:
 
 ```
-    ./merge_data_by_cell_type.sh <patient_ID> <path_to_metadata> <output_folder>
+    ./run_seurat_merged.sh <patient_ID> <path_to_metadata> <output_folder>
 ```
 
 To run the **full** COVID-19 single cell processing pipeline that processes all patients and then merges data, please use in the simplest case:

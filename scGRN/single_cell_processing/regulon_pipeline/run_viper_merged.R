@@ -1,4 +1,4 @@
-rm(list=ls())
+rm(list=ls())  # clear namespace
 
 suppressPackageStartupMessages({
   # if (!require("pacman")) install.packages("pacman")
@@ -18,12 +18,21 @@ suppressPackageStartupMessages({
   library(dorothea)
   library(tibble)
   library(tidyr)
-  library(parallel)
   library(rlang)
   library(reticulate)
 })
 
 pd <- import('pandas')
+
+# save figures without messages
+my_ggsave <- function(obj, filename){
+  suppressMessages(ggsave(obj, filename = filename))
+}
+
+# deal with duplicate slashes
+file_path = function(..., fsep = .Platform$file.sep){
+  gsub("//", "/", file.path(..., fsep = fsep))
+}
 
 ###################### INPUT
 
@@ -32,30 +41,51 @@ option_list = list(
   make_option(c("-o", "--outdir"), type="character", default='/gpfs/projects/bsc08/bsc08890/res/covid_19', help="Output folder with cell-type specific data", metavar="character"),
   make_option(c('-r', '--regulon'), type='character', default='pyscenic', help='Regulons to use - either dorothea or pyscenic', metavar='character'),
   make_option(c('-q', '--quantile'), type='character', default='', help='Quantile threshold to search for the network', metavar='character'),
-  make_option(c("-v", "--verbose"), type="logical", default=T, help="Verbose", metavar="T|F"),
+  make_option(c("-c", "--pleiotropy_correction"), type="logical", default=T, help='Pleitropy correction?', metavar="T|F"),
+  make_option(c('-n', '--num_proc'), type='integer', help='Number of processes run in parallel', default=6, metavar='integer'),
   make_option(c("-s", "--serialize"), type="logical", default=T, help="Save Seurat object", metavar="T|F"),
-  make_option(c("-c", "--pleiotropy_correction"), type="logical", default=T, help='Pleitropy correction?', metavar="T|F")
+  make_option(c("-v", "--verbose"), type="logical", default=T, help="Verbose", metavar="T|F")
 )
 opt_parser <- OptionParser(option_list=option_list, add_help_option = T)
 opt <- parse_args(opt_parser)
 
-# EVALUATE CLI
-if (is.null(opt$meta_file)){
+# mandatory params
+if (is.null(opt$meta_file) || opt$meta_file == ''){
   print_help(opt_parser)
-  stop("No metadata file provided", call.=FALSE)
+  stop("No metadata file path provided", call.=FALSE)
 }
-if (is.null(opt$out)){
+if (is.null(opt$outdir) || opt$outdir == ''){
   print_help(opt_parser)
-  stop("No output folder provided", call.=FALSE)
+  stop("No output folder path provided", call.=FALSE)
+}
+
+# arbitrary params
+if (opt$regulon == ''){
+  opt$regulon = 'pyscenic'
+}
+if (opt$pleiotropy_correction == ''){
+  opt$pleiotropy_correction = T
+}
+if (is.na(opt$num_proc)){
+  opt$num_proc = 6
+}
+if (is.na(opt$serialize)){
+  opt$serialize = T
+}
+if (is.na(opt$verbose)){
+  opt$verbose = F
 }
 
 cat("\n\n")
-cat("***********************************\n")
-cat(sprintf("*** VIPER PROCESSING BASED ON %s REGULONS, CELL-TYPE SPECIFIC ***\n", toupper(opt$regulon)))
-cat("***********************************\n\n")
-cat("metadata file: ", opt$meta_file, "\n")
-cat("outdir: ", opt$outdir, "\n")
-cat("verbose: ", opt$verbose, "\n\n")
+cat("*************************************\n")
+cat("*** VIPER PROCESSING BY CELL TYPE ***\n")
+cat("*************************************\n\n")
+cat("Outdir: ", opt$outdir, "\n")
+cat("Metadata: ", opt$meta_file, "\n")
+cat("Regulon type: ", opt$regulon, "\n")
+cat("Network quantile threshold filter: ", opt$quantile, "\n")
+cat("Apply pleiotropy correction: ", opt$pleiotropy_correction, "\n")
+cat("Verbose: ", opt$verbose, "\n")
 
 
 ###################### LOAD DATA
@@ -64,28 +94,24 @@ cat("verbose: ", opt$verbose, "\n\n")
 meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F, check.names=F, na.strings = '')
 pat_type_levels <- c("C", "M", "S")
 
-# Getting DoRothEA
+# create directory where we will save cell-type specific data
+cell_type_dir <- paste0(opt$outdir, '/cell_types')
+dir.create(cell_type_dir, showWarnings = F)
+
+# getting DoRothEA
 dorothea_regulon_human <- get(data("dorothea_hs", package = "dorothea"))
 
-# Getting regulons
+# getting dorothea regulons if chosen
 if (opt$regulon == 'dorothea'){
   regulon <- dorothea_regulon_human %>%
     dplyr::filter(confidence %in% c("A","B","C"))
 }
 
-# create directory where we will save cell-type specific data
-cell_type_dir <- paste0(opt$outdir, '/cell_types')
-dir.create(cell_type_dir, showWarnings = F)
-
 colors <- list(green='#39B600', yellow='#D89000', red='#F8766D', blue='#00B0F6', 
                purple='#9590FF', cyan='#00BFC4', pink='E76BF3', light_pink='#FF62BC',
                saturated_green='#00BF7D')
 
-my_ggsave <- function(obj, filename){
-  suppressMessages(ggsave(obj, filename = filename))
-}
-
-i##################### CELL-TYPE SPECIFIC PROCESSING
+##################### CELL-TYPE SPECIFIC PROCESSING
 
 for(i in 1:ncol(meta)){
   
@@ -154,6 +180,7 @@ for(i in 1:ncol(meta)){
     
     ###################### SCALE DATA
     cat("      - Scaling\n")
+    
     curr_sobj <- ScaleData(object = curr_sobj, verbose = F)
     
     ###################### DIM REDUCTION

@@ -78,6 +78,8 @@ cat("Use pre-computed merged Seurat object: ", opt$use_merged_precomputed, "\n")
 cat("Serialize output: ", opt$serialize, "\n")
 cat("Verbose: ", opt$verbose, "\n")
 
+###################### LOAD DATA
+
 # read metadata
 meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F)
 rownames(meta) <- meta$id
