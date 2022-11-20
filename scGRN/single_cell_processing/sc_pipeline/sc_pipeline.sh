@@ -13,9 +13,9 @@
 ##########################################
 
 META=$1  # e.g. ../sc_metadata.tsv - mandatory parameter
-OUT=$2  # e.g. /gpfs/projects/bsc08/bsc08890/res/covid_19 - mandatory parameter
+OUT=$2  # e.g. /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/res/covid_19 - mandatory parameter
 ANNO=$3  # e.g. HumanPrimaryCellAtlasData
-ANNO_F=$4  # e.g. /gpfs/projects/bsc08/bsc08890/data/SingleR
+ANNO_F=$4  # e.g. /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/SingleR
 N_PROC=$5  # e.g. 6
 PRE_MERGED=$6  # T|F
 SOBJ=$7  # e.g. T|F

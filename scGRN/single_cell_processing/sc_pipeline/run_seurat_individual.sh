@@ -14,9 +14,9 @@
 
 PAT=$1  # e.g. C51 - mandatory parameter
 META=$2  # e.g. ../sc_metadata.tsv - mandatory parameter
-OUT=$3  # e.g. /gpfs/projects/bsc08/bsc08890/res/covid_19 - mandatory parameter
+OUT=$3  # e.g. /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/res/covid_19 - mandatory parameter
 ANNO=$4  # e.g. HumanPrimaryCellAtlasData
-ANNO_F=$5  # e.g. /gpfs/projects/bsc08/bsc08890/data/SingleR
+ANNO_F=$5  # e.g. /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/SingleR
 SOBJ=$6  # e.g. T|F
 SFOBJ=$7  # e.g. T|F
 VERB=$8  # e.g. T|F

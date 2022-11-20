@@ -283,6 +283,7 @@ sobj@misc$cell_type_assay <- do.call("cbind", by(t(sobj@assays$RNA@data), pred$l
 ###################### FINISH
 cat("      - Saving\n")
 
+# Clearing figures because of RAM issues
 if (opt$add_figure_objects == F) {
   sobj_combined@misc$plots <- NULL
 }

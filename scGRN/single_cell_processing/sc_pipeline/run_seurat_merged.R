@@ -453,8 +453,9 @@ for (i in 1:ncol(meta)){
     ###################### FINISH
     cat("      - Saving\n")
     
-    # reload previously saved data
-    # load(file=file_path(sample_data_dir, "/seurat_object.RData"))
+    ################# Load Seurat object from previous run ####################
+    # load(file_path(sample_data_dir, "seurat_object.RData"))
+    ###########################################################################
     
     if (opt$serialize==T) save(curr_sobj, file=file_path(sample_data_dir, "seurat_object.RData"))
     
@@ -467,7 +468,7 @@ for (i in 1:ncol(meta)){
     # cell info
     write.table(curr_sobj@meta.data, file=file_path(sample_data_dir, "cells_metadata.tsv"), sep="\t", row.names=T, col.names=T, quote=F)
     
-    # patient type merged info
+    # patient type merged info (only control/mild/severe patients)
     for (k in 1:3){
       
       type <- pat_type_levels[k]

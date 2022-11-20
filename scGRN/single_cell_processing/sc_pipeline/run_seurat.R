@@ -221,7 +221,7 @@ run <- function(i){
   ###################### FINISH
   cat("      - Saving\n")
   
-  if(opt$serialize==T) save(sobj, file=file_path(sample_data_dir,"seurat_object.RData"))
+  if(opt$serialize==T) save(sobj, file=file_path(sample_data_dir, "seurat_object.RData"))
 
   # prune labels - keep only cells with high confidence annotation
   cell_types <- unique(pred$labels)

@@ -157,7 +157,7 @@ for(i in 1:nrow(meta)){
   
   load(paste0(sample_dir, "data/Seurat/seurat_object.RData"))
   
-  # Running viper
+  # running viper
   cat("      - Running viper\n")
   sobj <- run_viper(sobj, regulon,
                     options = list(method = "scale", minsize = 4, 
