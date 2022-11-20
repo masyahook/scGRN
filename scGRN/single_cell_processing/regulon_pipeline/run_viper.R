@@ -23,7 +23,7 @@ file_path = function(..., fsep = .Platform$file.sep){
   gsub("//", "/", file.path(..., fsep = fsep))
 }
 
-# prevent Rplots.pdf from being generated
+# prevent Rplots.pdf from being generated (turn off to visualize in RStudio Server)
 pdf(NULL)
 
 ###################### INPUT
