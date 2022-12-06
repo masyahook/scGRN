@@ -3,6 +3,9 @@ import argparse
 from _post_process import post_process_adj_list
 
 
+""" Post-process chosen pyscenic-produced adjacency list by filtering, saving as pickle and NetworkX graph """
+
+
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Process the list of adjacencies starting from saving it to pickle '

@@ -9,9 +9,15 @@ import pandas as pd
 from _post_process import post_process_adj_list
 
 
+""" Post-process chosen pyscenic-produced all adjacency lists by filtering, saving as pickle and NetworkX graph """
+
+
 def run_post_process_adj_list(fn, q):
     """
     Helper function to deal with empty data.
+
+    :param fn: filename of pyscenic output
+    :param q: the quantile threshold
     """
 
     try:
@@ -22,6 +28,7 @@ def run_post_process_adj_list(fn, q):
 
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser(
         description='Process all graph adjacency lists computed in the specified data folder.')
     parser.add_argument('-f', '--fn', type=str, help='The path to folder containing the data.', required=True)

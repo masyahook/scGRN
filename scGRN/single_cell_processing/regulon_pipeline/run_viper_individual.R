@@ -83,6 +83,8 @@ cat("Metadata: ", opt$meta_file, "\n")
 cat("Regulon type: ", opt$regulon, "\n")
 cat("Network quantile threshold filter: ", opt$quantile, "\n")
 cat("Apply pleiotropy correction: ", opt$pleiotropy_correction, "\n")
+cat("Parallelized by: ", opt$num_proc, '\n')
+cat("Serialize output: ", opt$serialize, "\n")
 cat("Verbose: ", opt$verbose, "\n")
 
 ###################### LOAD DATA

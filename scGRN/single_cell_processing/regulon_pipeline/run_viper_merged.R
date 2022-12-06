@@ -55,7 +55,7 @@ if (is.null(opt$outdir) || opt$outdir == ''){
 if (opt$regulon == ''){
   opt$regulon = 'pyscenic'
 }
-if (opt$pleiotropy_correction == ''){
+if (is.na(opt$pleiotropy_correction)){
   opt$pleiotropy_correction = T
 }
 if (is.na(opt$num_proc)){
@@ -73,17 +73,19 @@ cat("*************************************\n")
 cat("*** VIPER PROCESSING BY CELL TYPE ***\n")
 cat("*************************************\n\n")
 cat("Outdir: ", opt$outdir, "\n")
-cat("Patient: ", opt$pat, "\n")
 cat("Metadata: ", opt$meta_file, "\n")
 cat("Regulon type: ", opt$regulon, "\n")
 cat("Network quantile threshold filter: ", opt$quantile, "\n")
 cat("Apply pleiotropy correction: ", opt$pleiotropy_correction, "\n")
+cat("Parallelized by: ", opt$num_proc, '\n')
+cat("Serialize output: ", opt$serialize, "\n")
 cat("Verbose: ", opt$verbose, "\n")
 
 ###################### LOAD DATA
 
 # read metadata
 meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F)
+rownames(meta) <- meta$id
 pat_type_levels <- c("C", "M", "S")
 
 # create directory where we will save cell-type specific data
@@ -109,7 +111,7 @@ for(i in 1:ncol(meta)){
   
   tryCatch({
     curr_type <- colnames(meta)[i]
-    cat("  > Processing cell type: ",curr_type," (",i," of ", nrow(meta),")\n", sep="")
+    cat("  > Processing cell type: ",curr_type," (",i," of ", ncol(meta),")\n", sep="")
     
     ###################### INIT
     cat("      - Init\n")

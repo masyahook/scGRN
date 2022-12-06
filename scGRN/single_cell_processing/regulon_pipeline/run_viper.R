@@ -55,7 +55,7 @@ if (is.null(opt$outdir) || opt$outdir == ''){
 if (opt$regulon == ''){
   opt$regulon = 'pyscenic'
 }
-if (opt$pleiotropy_correction == ''){
+if (is.na(opt$pleiotropy_correction)){
   opt$pleiotropy_correction = T
 }
 if (is.na(opt$num_proc)){
@@ -73,21 +73,21 @@ cat("************************\n")
 cat("*** VIPER PROCESSING ***\n")
 cat("************************\n\n")
 cat("Outdir: ", opt$outdir, "\n")
-cat("Patient: ", opt$pat, "\n")
 cat("Metadata: ", opt$meta_file, "\n")
 cat("Regulon type: ", opt$regulon, "\n")
 cat("Network quantile threshold filter: ", opt$quantile, "\n")
 cat("Apply pleiotropy correction: ", opt$pleiotropy_correction, "\n")
+cat("Parallelized by: ", opt$num_proc, '\n')
+cat("Serialize output: ", opt$serialize, "\n")
 cat("Verbose: ", opt$verbose, "\n")
 
 ###################### LOAD DATA
 
 # read metadata
 meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F)
-rownames(meta) <- meta$id
 
 # create working directory
-dir.create(opt$outdir, recursive = T, showWarnings = T)
+dir.create(opt$outdir, recursive = T, showWarnings = F)
 
 # getting DoRothEA
 dorothea_regulon_human <- get(data("dorothea_hs", package = "dorothea"))
@@ -155,7 +155,7 @@ for(i in 1:nrow(meta)){
   
   ###################### VIPER BASED ON DOROTHEA REGULONS
   
-  load(paste0(sample_dir, "data/Seurat/seurat_object.RData"))
+  load(file_path(sample_dir, "data/Seurat/seurat_object.RData"))
   
   # running viper
   cat("      - Running viper\n")

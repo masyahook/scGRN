@@ -9,6 +9,9 @@ import networkx as nx
 def post_process_adj_list(fn, q_thresh):
     """
     Post-process the adjacency list that is produced by GRN algorithm and save the Networkx GRN to pickle format.
+
+    :param fn: filename of pyscenic output
+    :param q_thresh: the quantile threshold
     """
 
     # Defining file and path names 
