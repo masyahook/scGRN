@@ -32,7 +32,7 @@ option_list = list(
   make_option(c('-a', '--annotation'), type='character', help='Annotation dataset used to label cells', default='HumanPrimaryCellAtlasData', metavar='character'),
   make_option(c('--annotation_folder'), type='character', help='Folder with saved annotation datasets', default=NULL, metavar='character'),
   make_option(c("-s", "--serialize"), type="logical", default=T, help="Save Seurat object", metavar="T|F"),
-  make_option(c('--add_figure_objects'), type='logical', default=T, help='Whether to add figure objects to Seurat object', metavar='T|F'),
+  make_option(c('--save_figure_objects'), type='logical', default=T, help='Whether to add figure objects to Seurat object', metavar='T|F'),
   make_option(c("-v", "--verbose"), type="logical", default=F, help="Verbose level", metavar="T|F")
 )
 opt_parser <- OptionParser(option_list=option_list, add_help_option = T)
@@ -54,16 +54,19 @@ if (is.null(opt$outdir) || opt$outdir == ''){
 
 # arbitrary params
 if (opt$annotation == ''){
-  opt$annotation = 'HumanPrimaryCellAtlasData'
+  opt$annotation <- 'HumanPrimaryCellAtlasData'
+}
+if (opt$annotation_folder == ''){
+  opt$annotation_folder = '/gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/SingleR'
 }
 if (is.na(opt$serialize)){
-  opt$serialize = T
+  opt$serialize <- T
 }
-if (is.na(opt$add_figure_objects)){
-  opt$add_figure_objects = T
+if (is.na(opt$save_figure_objects)){
+  opt$save_figure_objects <- T
 }
 if (is.na(opt$verbose)){
-  opt$verbose = F
+  opt$verbose <- F
 }
 
 cat("\n\n")
@@ -76,7 +79,7 @@ cat("Metadata: ", opt$meta_file, "\n")
 cat("Annotation: ", opt$annotation, "\n")
 cat("Annotation folder: ", opt$annotation_folder, "\n")
 cat("Serialize output: ", opt$serialize, "\n")
-cat("Save figure objects: ", opt$save_figure_objects, '\n')
+cat("Save figures into Seurat object: ", opt$save_figure_objects, '\n')
 cat("Verbose: ", opt$verbose, "\n")
 
 ###################### LOAD DATA
@@ -91,9 +94,9 @@ opt$outfig <- file_path(opt$outpat, "figs/Seurat")
 opt$patpath <- meta[which(meta$id == opt$pat),]$file
 
 # create working directories
-dir.create(opt$outpat, recursive=T, showWarnings = F)
-dir.create(opt$outdat, recursive=T, showWarnings = F)
-dir.create(opt$outfig, recursive=T, showWarnings = F)
+dir.create(opt$outpat, recursive=T, showWarnings=F)
+dir.create(opt$outdat, recursive=T, showWarnings=F)
+dir.create(opt$outfig, recursive=T, showWarnings=F)
 
 # delete previously generated files
 # invisible(file.remove(list.files(opt$outdat, full.names = T, recursive = T)))
@@ -284,8 +287,8 @@ sobj@misc$cell_type_assay <- do.call("cbind", by(t(sobj@assays$RNA@data), pred$l
 cat("      - Saving\n")
 
 # Clearing figures because of RAM issues
-if (opt$add_figure_objects == F) {
-  sobj_combined@misc$plots <- NULL
+if (opt$save_figure_objects == F) {
+  sobj@misc$plots <- NULL
 }
 
 if (opt$serialize == T) save(sobj, file=file_path(opt$outdat, "seurat_object.RData"))
