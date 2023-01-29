@@ -12,3 +12,5 @@ __pycache__
 figs/*
 tmp/*
 old/*
+dask-worker-space
+Rplots.pdf

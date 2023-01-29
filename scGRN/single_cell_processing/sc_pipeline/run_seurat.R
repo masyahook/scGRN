@@ -220,6 +220,11 @@ run <- function(i){
   
   ###################### FINISH
   cat("      - Saving\n")
+
+  # Clearing figures because of RAM issues
+  if (opt$save_figure_objects == F) {
+    sobj@misc$plots <- NULL
+  }
   
   if(opt$serialize==T) save(sobj, file=file_path(sample_data_dir, "seurat_object.RData"))
 
@@ -265,7 +270,7 @@ option_list = list(
   make_option(c('--annotation_folder'), type='character', help='Folder with saved annotation datasets', default=NULL, metavar='character'),
   make_option(c('-n', '--num_proc'), type='integer', help='Number of processes run in parallel', default=6, metavar='integer'),
   make_option(c("-s", "--serialize"), type="logical", default=T, help="Save Seurat object", metavar="T|F"),
-  make_option(c('--add_figure_objects'), type='logical', default=T, help='Whether to add figure objects to Seurat object', metavar='T|F'),
+  make_option(c('--save_figure_objects'), type='logical', default=T, help='Whether to add figure objects to Seurat object', metavar='T|F'),
   make_option(c("-v", "--verbose"), type="logical", default=T, help="Verbose", metavar="T|F")
 )
 opt_parser <- OptionParser(option_list=option_list, add_help_option = T)
@@ -288,11 +293,14 @@ if (is.na(opt$num_proc)){
 if (opt$annotation == ''){
   opt$annotation = 'HumanPrimaryCellAtlasData'
 }
+if (opt$annotation_folder == ''){
+  opt$annotation_folder = '/gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/SingleR'
+}
 if (is.na(opt$serialize)){
   opt$serialize = T
 }
-if (is.na(opt$add_figure_objects)){
-  opt$add_figure_objects = T
+if (is.na(opt$save_figure_objects)){
+  opt$save_figure_objects = T
 }
 if (is.na(opt$verbose)){
   opt$verbose = F
@@ -325,6 +333,8 @@ dir.create(opt$outdir, recursive = T, showWarnings = F)
 # process samples
 sobjs <- list()
 cell_type_path_meta <- data.frame(row.names=meta$id)
+
+cat("  > Starting processing patients in parallel.. ")
 
 # setting up the cluster for parallel execution
 cl <- makeCluster(opt$num_proc)
