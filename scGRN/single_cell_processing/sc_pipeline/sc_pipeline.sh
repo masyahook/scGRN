@@ -26,17 +26,9 @@ VERB=$9  # e.g. T|F
 ############### Running ##################
 ##########################################
 
-# remembering the current directory, move to the directory of the scripts
-CURRENT_DIR=$(pwd)
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cd $SCRIPT_DIR
-
 # running
 Rscript run_seurat.R -m "$META" -o "$OUT" -a "$ANNO" \
   --annotation_folder "$ANNO_F" -n "$N_PROC" -s "$SOBJ" \
-  --add_figure_objects "$SFOBJ" -v "$VERB" && \
+  --save_figure_objects "$SFOBJ" -v "$VERB" && \
 Rscript run_seurat_merged.R -m "$META" -o "$OUT" -n "$N_PROC" \
   --use_merged_precomputed "$PRE_MERGED" -s "$SOBJ" -v "$VERB"
-
-# moving back
-cd $CURRENT_DIR
