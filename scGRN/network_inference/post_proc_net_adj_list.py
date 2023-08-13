@@ -1,9 +1,8 @@
+""" Post-process chosen pyscenic-produced adjacency list by filtering, saving as pickle and NetworkX graph """
+
 import argparse
 
 from _post_process import post_process_adj_list
-
-
-""" Post-process chosen pyscenic-produced adjacency list by filtering, saving as pickle and NetworkX graph """
 
 
 if __name__ == '__main__':
@@ -13,7 +12,7 @@ if __name__ == '__main__':
                                                  'and creating/saving a Networkx graph.')
     parser.add_argument('-f', '--fn', type=str, help='The full path to filename', required=True)
     parser.add_argument('-q', '--q_thresh', type=float, help='The quantile threshold used to filter out '
-                                                             'unimportant/false connections.', default=0.9)
+                                                             'unimportant/false connections.', default=0.95)
     args = parser.parse_args()
     
     # Run post-processing

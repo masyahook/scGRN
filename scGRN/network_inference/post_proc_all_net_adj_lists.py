@@ -1,3 +1,5 @@
+""" Post-process chosen pyscenic-produced all adjacency lists by filtering, saving as pickle and NetworkX graph """
+
 import argparse
 import os
 
@@ -7,9 +9,6 @@ from joblib import Parallel, delayed
 import pandas as pd
 
 from _post_process import post_process_adj_list
-
-
-""" Post-process chosen pyscenic-produced all adjacency lists by filtering, saving as pickle and NetworkX graph """
 
 
 def run_post_process_adj_list(fn, q):
@@ -30,7 +29,10 @@ def run_post_process_adj_list(fn, q):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description='Process all graph adjacency lists computed in the specified data folder.')
+        description='Process all graph adjacency lists computed in the specified data folder. '
+                    'Useful, when encountered errors during GRN inference and want to just run '
+                    'the last part of the pipeline.'
+    )
     parser.add_argument('-f', '--fn', type=str, help='The path to folder containing the data.', required=True)
     parser.add_argument('-q', '--q_thresh', type=float,
                         help='The quantile threshold used to filter out unimportant/false connections.', default=0.95)
