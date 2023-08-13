@@ -1,5 +1,4 @@
 rm(list=ls())  # clear namespace
-
 suppressPackageStartupMessages({
   library(SingleR)
   library(dplyr)
@@ -39,7 +38,7 @@ option_list = list(
   make_option(c("-m", "--meta_file"), type="character", help="Metadata file", metavar="character"),  
   make_option(c("-o", "--outdir"), type="character", help="Output folder", metavar="character"),
   make_option(c('-n', '--num_proc'), type='integer', help='Number of processes run in parallel', default=4, metavar='integer'),
-  make_option(c('--use_merged_precomputed'), type='logical', default=F, help='Whether to use pre-computed merged Seurat object', metavar='T|F'),
+  make_option(c('--use_merged_precomputed'), type='logical', default=F, help='Whether to use pre-computed merged Seurat object for computation speed-up', metavar='T|F'),
   make_option(c("-s", "--serialize"), type="logical", default=T, help="Save Seurat object", metavar="T|F"),
   make_option(c("-v", "--verbose"), type="logical", default=T, help="Verbose", metavar="T|F")
 )
@@ -58,7 +57,10 @@ if (is.null(opt$outdir) || opt$outdir == ''){
 
 # arbitrary params
 if (is.na(opt$num_proc)){
-  opt$num_proc = 4
+  opt$num_proc = 6
+}
+if (is.na(opt$use_merged_precomputed)){
+  opt$use_merged_precomputed = T
 }
 if (is.na(opt$serialize)){
   opt$serialize = T
@@ -91,11 +93,11 @@ pat_type_levels <- c('C', 'M', 'S')
 
 # create directory where we will save cell-type specific data
 cell_type_dir <- file_path(opt$outdir, 'cell_types')
-dir.create(cell_type_dir, showWarnings = F)
+dir.create(cell_type_dir, showWarnings = F, recursive=T)
 
 # create sample directory for the whole dataset
 full_dir <- file_path(cell_type_dir, 'all_data')
-dir.create(full_dir, showWarnings = F)
+dir.create(full_dir, showWarnings = F, recursive=T)
 full_fig_dir <- file_path(full_dir, 'figs/Seurat')
 dir.create(full_fig_dir, showWarnings = F, recursive=T)
 full_data_dir <- file_path(full_dir, 'data/Seurat')
@@ -323,10 +325,12 @@ for (i in 1:3){
 
 ##################### CELL-TYPE SPECIFIC PROCESSING
 
-for (i in 1:ncol(meta)){
+cell_types <- unique(sobj_combined@meta.data$cell_type)
+
+for (i in 1:length(cell_types)){
   
-  curr_type <- colnames(meta)[i]
-  cat("  > Processing cell type: ", curr_type, " (", i, " of ", ncol(meta), ")\n", sep="")
+  curr_type <- cell_types[i]
+  cat("  > Processing cell type: ", curr_type, " (", i, " of ", length(cell_types), ")\n", sep="")
   
   tryCatch({
     
