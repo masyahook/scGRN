@@ -29,6 +29,3 @@ VERB=$8  # e.g. T|F
 Rscript run_seurat_individual.R -p "$PAT" -m "$META" -o "$OUT" \
   -a "$ANNO" --annotation_folder "$ANNO_F" -s "$SOBJ" \
   --save_figure_objects "$SFOBJ" -v "$VERB"
-  
-# moving back
-cd $CURRENT_DIR
