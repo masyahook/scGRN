@@ -25,7 +25,7 @@ my_ggsave <- function(obj, filename){
 }
 
 # deal with duplicate slashes
-file_path = function(..., fsep = .Platform$file.sep){
+file_path <- function(..., fsep = .Platform$file.sep){
   gsub("//", "/", file.path(..., fsep = fsep))
 }
 
@@ -57,16 +57,16 @@ if (is.null(opt$outdir) || opt$outdir == ''){
 
 # arbitrary params
 if (is.na(opt$num_proc)){
-  opt$num_proc = 6
+  opt$num_proc <- 6
 }
 if (is.na(opt$use_merged_precomputed)){
-  opt$use_merged_precomputed = T
+  opt$use_merged_precomputed <- T
 }
 if (is.na(opt$serialize)){
-  opt$serialize = T
+  opt$serialize <- T
 }
 if (is.na(opt$verbose)){
-  opt$verbose = F
+  opt$verbose <- F
 }
 
 cat("\n\n")
@@ -116,38 +116,38 @@ plan("multiprocess", workers = opt$num_proc)
 cat("      - Integrating data\n")
 
 if (opt$use_merged_precomputed == T){
-  
+
   # load previously merged Seurat object
   load(file=file_path(full_data_dir, "unprocessed_seurat_object.RData"))
-  
+
 } else {
-  
+
   # loading patient objects
   pat_objs <- list()
   for (pat_id in names(pat_types)){
-    
+
     # define paths to files
     curr_fn <- file_path(opt$outdir, pat_id, 'data/Seurat/raw_data.tsv')
     curr_meta_fn <- file_path(dirname(curr_fn), 'cells_metadata.tsv')
-    
+
     # read the data and metadata
     curr_counts <- read.table(file=curr_fn, sep="\t", check.names=F)
     curr_meta <- read.table(file=curr_meta_fn, sep='\t', check.names=F)
-    
+
     # rename orig.dent in metadata to patient ID
     curr_meta$pat_id <- pat_id
-    
+
     # adding patient type data to metadata
     curr_meta$pat_type <- pat_types[pat_id]
-    
+
     # load everything to Seurat object
     curr_obj <- CreateSeuratObject(counts = curr_counts, min.cells = 0, min.genes = 0, project = pat_id, meta.data = curr_meta)
-    
+
     # save into the list
     pat_objs[pat_id] <- curr_obj
-    
+
   }
-  
+
   # normalize and identify variable features for each dataset independently
   pat_objs <- lapply(X = pat_objs, FUN = function(x) {
     x <- NormalizeData(x, verbose = opt$verbose)
