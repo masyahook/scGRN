@@ -28,6 +28,3 @@ VERB=$6  # e.g. T|F
 # running
 Rscript run_seurat_merged.R -m "$META" -o "$OUT" -n "$N_PROC" \
   --use_merged_precomputed "$PRE_MERGED" -s "$SOBJ" -v "$VERB"
-
-# moving back
-cd $CURRENT_DIR
