@@ -18,14 +18,9 @@ CELL_TYPE=$2  # e.g. "all_data" or "Macrophage" - the aggregated cell type data 
 PAT_TYPE=$3  # e.g. "all_patients" or ("C"|"M"|"S") - the aggregated patient type data identifier (patient type-specific or just all patients)
 NUM_WORKERS=$4  # e.g. 36
 Q_THRESH=$5  # e.g. 0.95 - quantile threshold
-PATH2TFLIST=$6  # e.g. /gpfs/projects/bsc08/bsc08890/data/TF_lists/lambert2018.txt
+TF_LIST_PATH=$6  # e.g. /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/TF_lists/lambert2018.txt
 RUN_TYPE=$7  # e.g. "GREASY"|"SBATCH" - used to separate logs for different types of computation
 TASK_NUM=$8  # e.g. 1 - just number of the tasks (useful to label when searching in logs)
-
-# Remembering the directories, moving to the directory of the scripts
-CURRENT_DIR=$(pwd)
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cd $SCRIPT_DIR
 
 # ----------------------------- #
 #### USER-SPECIFIED CONFIGS #####
@@ -47,7 +42,7 @@ else
 fi
 
 # Adding _TF suffix if running only on TFs
-if [ -z "$PATH2TFLIST" ]
+if [ -z "$TF_LIST_PATH" ]
 then
     TF_SUFFIX=
 else
@@ -96,7 +91,7 @@ printf "" > $LOG_ERR
 # Running either on all genes, or only on TFs
 # If running on all genes, using custom script
 # If running on TFs, using pyscenic script
-if [ -z "$PATH2TFLIST" ]; then
+if [ -z "$TF_LIST_PATH" ]; then
 
     printf "No TFs are provided - running $METHOD based on all genes..\n\n" >> $LOG_OUT
     printf "Computing adjacencies..\n" >> $LOG_OUT
@@ -120,7 +115,7 @@ else
     printf "Computing adjacencies..\n" >> $LOG_OUT
 
     # Run pySCENIC on TF genes
-    pyscenic grn $PATH2DATA $PATH2TFLIST -m $METHOD -o $GRN_ADJ --transpose --num_workers $NUM_WORKERS 2>> $LOG_ERR 1>> $LOG_OUT && \
+    pyscenic grn $PATH2DATA $TF_LIST_PATH -m $METHOD -o $GRN_ADJ --transpose --num_workers $NUM_WORKERS 2>> $LOG_ERR 1>> $LOG_OUT && \
     printf "Finished computing adjacencies..\n\n" >> $LOG_OUT || \
     printf "Failed computing adjacencies..\n\n" >> $LOG_OUT
 
@@ -140,6 +135,3 @@ else
     printf "Finished computing motif-enriched regulons.." >> $LOG_OUT || \
     printf "Failed computing motif-enriched regulons.." >> $LOG_OUT
 fi
-
-# moving back
-cd $CURRENT_DIR
