@@ -33,7 +33,7 @@ option_list = list(
   make_option(c("-m", "--meta_file"), type="character", help="Metadata file", metavar="character"),
   make_option(c("-o", "--outdir"), type="character", help="Output folder", metavar="character"),
   make_option(c('-r', '--regulon'), type='character', default='pyscenic', help='Regulons to use - either dorothea or pyscenic', metavar='character'),
-  make_option(c('-q', '--quantile'), type='character', default='', help='Quantile threshold used when filtering network', metavar='character'),
+  make_option(c('-q', '--quantile'), type='character', default='', help='Quantile threshold used when filtering network, using unfiltered network if not specified', metavar='character'),
   make_option(c("-c", "--pleiotropy_correction"), type="logical", default=T, help='Pleitropy correction?', metavar="T|F"),
   make_option(c('-n', '--num_proc'), type='integer', help='Number of processes run in parallel', default=6, metavar='integer'),
   make_option(c("-s", "--serialize"), type="logical", default=T, help="Save Seurat object", metavar="T|F"),

@@ -29,10 +29,10 @@ pdf(NULL)
 ###################### INPUT
 
 option_list = list(
-  make_option(c("-m", "--meta_file"), type="character", help="Metadata file with cell types", metavar="character"),
+  make_option(c("-m", "--meta_ctype_file"), type="character", help="Metadata file with cell types", metavar="character"),
   make_option(c("-o", "--outdir"), type="character", help="Output folder with cell-type specific data", metavar="character"),
   make_option(c('-r', '--regulon'), type='character', default='pyscenic', help='Regulons to use - either dorothea or pyscenic', metavar='character'),
-  make_option(c('-q', '--quantile'), type='character', default='', help='Quantile threshold to search for the network', metavar='character'),
+  make_option(c('-q', '--quantile'), type='character', default='', help='Quantile threshold to search for the network, using unfiltered network if not specified', metavar='character'),
   make_option(c("-c", "--pleiotropy_correction"), type="logical", default=T, help='Pleitropy correction?', metavar="T|F"),
   make_option(c('-n', '--num_proc'), type='integer', help='Number of processes run in parallel', default=6, metavar='integer'),
   make_option(c("-s", "--serialize"), type="logical", default=T, help="Save Seurat object", metavar="T|F"),
@@ -42,7 +42,7 @@ opt_parser <- OptionParser(option_list=option_list, add_help_option = T)
 opt <- parse_args(opt_parser)
 
 # mandatory params
-if (is.null(opt$meta_file) || opt$meta_file == ''){
+if (is.null(opt$meta_ctype_file) || opt$meta_ctype_file == ''){
   print_help(opt_parser)
   stop("No metadata file path provided", call.=FALSE)
 }
@@ -73,7 +73,7 @@ cat("*************************************\n")
 cat("*** VIPER PROCESSING BY CELL TYPE ***\n")
 cat("*************************************\n\n")
 cat("Outdir: ", opt$outdir, "\n")
-cat("Metadata: ", opt$meta_file, "\n")
+cat("Metadata: ", opt$meta_ctype_file, "\n")
 cat("Regulon type: ", opt$regulon, "\n")
 cat("Network quantile threshold filter: ", opt$quantile, "\n")
 cat("Apply pleiotropy correction: ", opt$pleiotropy_correction, "\n")
@@ -84,8 +84,7 @@ cat("Verbose: ", opt$verbose, "\n")
 ###################### LOAD DATA
 
 # read metadata
-meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F)
-rownames(meta) <- meta$id
+meta_ctype <- read.table(opt$meta_ctype_file, header = T, sep="\t", stringsAsFactors = F)
 pat_type_levels <- c("C", "M", "S")
 
 # create directory where we will save cell-type specific data
@@ -102,16 +101,16 @@ if (opt$regulon == 'dorothea'){
 }
 
 colors <- list(green='#39B600', yellow='#D89000', red='#F8766D', blue='#00B0F6', 
-               purple='#9590FF', cyan='#00BFC4', pink='E76BF3', light_pink='#FF62BC',
+               purple='#9590FF', cyan='#00BFC4', pink='#E76BF3', light_pink='#FF62BC',
                saturated_green='#00BF7D')
 
 ##################### CELL-TYPE SPECIFIC PROCESSING
 
-for(i in 1:ncol(meta)){
+for(i in 1:ncol(meta_ctype)){
   
   tryCatch({
-    curr_type <- colnames(meta)[i]
-    cat("  > Processing cell type: ",curr_type," (",i," of ", ncol(meta),")\n", sep="")
+    curr_type <- colnames(meta_ctype)[i]
+    cat("  > Processing cell type: ",curr_type," (",i," of ", ncol(meta_ctype),")\n", sep="")
     
     ###################### INIT
     cat("      - Init\n")
@@ -120,6 +119,11 @@ for(i in 1:ncol(meta)){
     sample_dir <- file_path(cell_type_dir, curr_type)
     sample_fig_dir <- file_path(sample_dir, '/figs/Seurat/regulon')
     sample_data_dir <- file_path(sample_dir, '/data/Seurat/regulon')
+
+    # create working directories
+    dir.create(sample_dir, recursive=T, showWarnings = F)
+    dir.create(sample_fig_dir, recursive=T, showWarnings = F)
+    dir.create(sample_data_dir, recursive=T, showWarnings = F)
     
     # load pyscenic regulons if chosen
     if (opt$regulon == 'pyscenic' | opt$regulon == 'pyscenic_dorothea'){
