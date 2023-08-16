@@ -158,6 +158,8 @@ load(file_path(opt$outpat, "/data/Seurat/seurat_object.RData"))
 
 ###################### VIPER BASED ON DOROTHEA REGULONS
 
+cat("      - Running VIPER\n")
+
 # running viper
 sobj <- run_viper(sobj, regulon,
                   options = list(method = "scale", minsize = 4, 
