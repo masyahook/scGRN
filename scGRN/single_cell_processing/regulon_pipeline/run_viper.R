@@ -1,4 +1,4 @@
-rm(list=ls())  # clear namespace
+rm(list = ls())  # clear namespace
 suppressPackageStartupMessages({
   library(Seurat)
   library(dplyr)
@@ -85,6 +85,9 @@ cat("Verbose: ", opt$verbose, "\n")
 
 # read metadata
 meta <- read.table(opt$meta_file, header=T, sep="\t", stringsAsFactors = F)
+rownames(meta) <- meta$id
+pat_types <- meta$group
+names(pat_types) <- meta$id
 
 # create working directory
 dir.create(opt$outdir, recursive = T, showWarnings = F)
@@ -101,13 +104,13 @@ if (opt$regulon == 'dorothea'){
 # process samples
 sobjs <- list()
 for(i in 1:nrow(meta)){
-  cat("  > Processing sample ", meta$id[i], " (", i ," of ", nrow(meta), ")\n", sep="")
+  cat("  > Processing sample ", rownames(meta)[i], " (", i ," of ", nrow(meta), ")\n", sep="")
   
   ###################### INIT
   cat("      - Init\n")
   
   # create sample directory
-  sample_dir <- file_path(opt$outdir, meta$id[i])
+  sample_dir <- file_path(opt$outdir, rownames(meta)[i])
   dir.create(sample_dir, recursive = T, showWarnings = F)
   sample_fig_dir <- file_path(sample_dir, 'figs/Seurat/regulon')
   dir.create(sample_fig_dir, recursive = T, showWarnings = F)

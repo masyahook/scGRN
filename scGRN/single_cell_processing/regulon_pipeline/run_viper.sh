@@ -25,14 +25,6 @@ VERB=$8  # e.g. T|F - verbosity
 ############### Running ##################
 ##########################################
 
-# remembering the current directory, move to the directory of the scripts
-CURRENT_DIR=$(pwd)
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cd $SCRIPT_DIR
-
 # running
 Rscript run_viper.R -m "$META" -o "$OUT" -r "$REGULON" -q "$Q_THRESH" 
   -c "$PLEIOT_CORR" -n "$N_PROC" -s "$SOBJ" -v "$VERB"
-  
-# moving back
-cd $CURRENT_DIR
