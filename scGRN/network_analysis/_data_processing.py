@@ -408,7 +408,6 @@ def get_viper_mat(
         tolerate_missing: bool = True
 ) -> Union[pd.DataFrame, None]:
     """
-    FIXME - fix the path names to the files - outdated script
     Load VIPER score TF activity matrix.
 
     :param cell_type: The cell type name of the data - could be either:
@@ -435,7 +434,7 @@ def get_viper_mat(
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
 
         fn = os.path.join(
-            data_home, data_folder, cell_type, 'Seurat', 'pickle', f'{regulon}_raw_data.pickle'
+            data_home, data_folder, 'data', 'Seurat', 'regulon', 'pickle', f'{regulon}_raw_data.pickle'
         )
 
     # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
@@ -445,7 +444,7 @@ def get_viper_mat(
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
 
         fn = os.path.join(
-            data_home, data_folder, cell_type, 'Seurat', 'pickle', f'{regulon}_raw_data_{pat}_type.pickle'
+            data_home, data_folder, 'data', 'Seurat', 'regulon', 'pickle', f'{regulon}_raw_data_{pat}_type.pickle'
         )
 
     # Loading patient-specific data
@@ -463,7 +462,7 @@ def get_viper_mat(
                 tag = cell_type
 
         fn = os.path.join(
-            data_home, pat, 'data', 'Seurat', 'pickle', f'{regulon}_{tag}.pickle'
+            data_home, pat, 'data', 'Seurat', 'regulon', 'pickle', f'{regulon}_{tag}.pickle'
         )
 
     try:
