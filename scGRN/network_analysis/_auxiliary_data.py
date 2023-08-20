@@ -1,3 +1,5 @@
+"""Load external data for network analysis."""
+
 import os
 from typing import Union
 

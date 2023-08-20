@@ -1,15 +1,18 @@
-import numpy as np
-import pandas as pd
-import networkx as nx
+"""Plotting functions for network analysis."""
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import pandas as pd
 import seaborn as sns
-from matplotlib.transforms import Bbox
 from matplotlib.axes import Axes
 from matplotlib.colors import ListedColormap
+from matplotlib.transforms import Bbox
 
+from ..config import _ALPHA
 from ..config import _GGPLOT_COLORS as colors
-from ..config import _NODE_SIZE, _ALPHA
+from ..config import _NODE_SIZE
 from ..utils import scale
 
 

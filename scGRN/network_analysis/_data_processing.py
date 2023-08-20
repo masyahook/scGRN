@@ -1,17 +1,23 @@
+"""Data loading / processing for network analysis."""
+
+import itertools
 import os
 import warnings
 from typing import Union
 
+import igraph as ig
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
+from joblib import Parallel, delayed
 
-from ..utils import is_non_empty
 from ..config import _DATA_HOME, _META_FILE
+from ..utils import is_non_empty
+
 
 def get_meta(
-        data_home: str = _DATA_HOME,
-        meta_file: str = _META_FILE
+    data_home: str = _DATA_HOME,
+    meta_file: str = _META_FILE
 ) -> pd.DataFrame:
     """
     Obtain metadata information about the patients.
@@ -39,8 +45,8 @@ def get_meta(
 
 
 def get_avail_sc_data(
-        data_home: str = _DATA_HOME,
-        meta_file: str = _META_FILE
+    data_home: str = _DATA_HOME,
+    meta_file: str = _META_FILE
 ) -> pd.DataFrame:
     """
     Obtain dataframe that contains the information about the scRNA-seq matrix data availability.
@@ -94,8 +100,8 @@ def get_avail_sc_data(
 
 
 def get_avail_pat_sc(
-        pat: str,
-        as_data_fn: bool = True
+    pat: str,
+    as_data_fn: bool = True
 ) -> list:
     """
     Get a list of available scRNA-seq datasets corresponding to `pat`.
@@ -119,10 +125,10 @@ def get_avail_pat_sc(
 
 
 def get_avail_adj_lists(
-        data_home: str = _DATA_HOME,
-        meta_file: str = _META_FILE,
-        method: str = 'grnboost2',
-        filtered: float = 0.95,
+    data_home: str = _DATA_HOME,
+    meta_file: str = _META_FILE,
+    method: str = 'grnboost2',
+    filtered: float = 0.95,
 ) -> dict:
     """
     Obtain dictionary containing the information about GRN adjacency list availability.
@@ -194,10 +200,10 @@ def get_avail_adj_lists(
 
 
 def get_avail_nx_graphs(
-        data_home: str = _DATA_HOME,
-        meta_file: str = _META_FILE,
-        method: str = 'grnboost2',
-        filtered: float = 0.95
+    data_home: str = _DATA_HOME,
+    meta_file: str = _META_FILE,
+    method: str = 'grnboost2',
+    filtered: float = 0.95
 ) -> dict:
     """
     Obtain dictionary containing the information about GRN NetworkX graph availability.
@@ -266,9 +272,9 @@ def get_avail_nx_graphs(
 
 
 def get_avail_pat_nx(
-        net_type: str,
-        pat: str,
-        as_data_fn: bool = True
+    net_type: str,
+    pat: str,
+    as_data_fn: bool = True
 ) -> list:
     """
     Get a list of available GRN NetworkX graphs corresponding to `net_type` and `pat`.
@@ -296,10 +302,10 @@ def get_avail_pat_nx(
 
 
 def get_sc_data(
-        cell_type: str,
-        pat: str = None,
-        data_home: str = _DATA_HOME,
-        tolerate_missing: bool = True
+    cell_type: str,
+    pat: str = None,
+    data_home: str = _DATA_HOME,
+    tolerate_missing: bool = True
 ) -> Union[pd.DataFrame, None]:
     """
     Load scRNA-seq matrix data.
@@ -401,11 +407,11 @@ def get_num_cells(pat: str, cell_type: str, meta: pd.DataFrame) -> int:
 
 
 def get_viper_mat(
-        cell_type: str,
-        pat: str = None,
-        regulon: str = 'pyscenic',
-        data_home: str = _DATA_HOME,
-        tolerate_missing: bool = True
+    cell_type: str,
+    pat: str = None,
+    regulon: str = 'pyscenic',
+    data_home: str = _DATA_HOME,
+    tolerate_missing: bool = True
 ) -> Union[pd.DataFrame, None]:
     """
     Load VIPER score TF activity matrix.
@@ -481,13 +487,13 @@ def get_viper_mat(
 
 
 def get_adj_list(
-        cell_type: str,
-        net_type: str,
-        pat: str = None,
-        method: str = 'grnboost2',
-        filtered: float = None,
-        data_home: str = _DATA_HOME,
-        tolerate_missing: bool = True
+    cell_type: str,
+    net_type: str,
+    pat: str = None,
+    method: str = 'grnboost2',
+    filtered: float = None,
+    data_home: str = _DATA_HOME,
+    tolerate_missing: bool = True
 ) -> Union[pd.DataFrame, None]:
     """
     Load adjacency list from patient-specific data, or from cell type aggregated data.
@@ -572,13 +578,13 @@ def get_adj_list(
 
 
 def get_nx_graph(
-        cell_type: str,
-        net_type: str,
-        pat: str = None,
-        method: str = 'grnboost2',
-        filtered: float = None,
-        data_home: str = _DATA_HOME,
-        tolerate_missing: bool = True
+    cell_type: str,
+    net_type: str,
+    pat: str = None,
+    method: str = 'grnboost2',
+    filtered: float = None,
+    data_home: str = _DATA_HOME,
+    tolerate_missing: bool = True
 ) -> Union[nx.DiGraph, None]:
     """
     Load NetworkX graph from patient-specific data, or from cell type aggregated data.
@@ -664,11 +670,11 @@ def get_nx_graph(
 
 
 def _compute_graph_stats(
-        curr_pat_: str,
-        curr_ctype_: str,
-        curr_ntype_: str,
-        _meta: pd.DataFrame,
-        _q_thresh: float
+    curr_pat_: str,
+    curr_ctype_: str,
+    curr_ntype_: str,
+    _meta: pd.DataFrame,
+    _q_thresh: float
 ) -> dict:
     """
     Compute graph statistics for given patient, cell type and net type.
@@ -691,8 +697,6 @@ def _compute_graph_stats(
 
     :return: A dictionary containing computed graph properties
     """
-
-    import igraph as ig
 
     out = {}
     try:
@@ -737,9 +741,6 @@ def get_graph_stats(meta: pd.DataFrame, n_jobs: int, filtered: float = None) -> 
 
     :return: A dictionary containing computed graph properties for all available GRNs
     """
-
-    from joblib import Parallel, delayed
-    import itertools
 
     n_types = ['all', 'ctx']  # computing only for these types of networks
 
