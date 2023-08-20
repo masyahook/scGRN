@@ -1,13 +1,26 @@
+""" Convert all saved .tsv VIPER files to .pickle format, for faster IO operations later """
+
 import argparse
 import os
 
+import re
 import pandas as pd
 from tqdm import tqdm
 import multiprocessing
 from joblib import Parallel, delayed
 
 
-""" Convert all saved .tsv VIPER files to .pickle format, for faster IO operations later """
+def _safe_listdir(path):
+    """Safe way to list directory, in case it is not existent."""
+
+    try:
+        return os.listdir(path)
+    except FileNotFoundError as e:
+        print(
+            f'The path {path} does not exist. Did you run the `regulon_pipeline.sh` for that data?'
+            f'Error:\n{e}'
+        )
+        return []
 
 
 def to_pickle(fn):
@@ -36,13 +49,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Saving pat-specific VIPER data
-    DATA_PATH = '/gpfs/projects/bsc08/bsc08890/res/covid_19'
+    DATA_PATH = args.outdir
 
     # Defining path names, creating pickle folders
-    pat_spec_data_folders = [folder for folder in os.listdir(DATA_PATH) if folder not in ['cell_types', '.ipynb_checkpoints']]
+    pattern = re.compile('^C\d{2,3}$')  # either C51, C52, or C141, C142, etc
+    pat_spec_data_folders = [folder for folder in os.listdir(DATA_PATH) if pattern.match(folder)]
     _ = [os.makedirs(os.path.join(DATA_PATH, pat, 'data', 'Seurat', 'regulon', 'pickle'), exist_ok=True) for pat in pat_spec_data_folders]
     data_files = [
-        os.path.join(DATA_PATH, pat, 'data', 'Seurat', f) for pat in pat_spec_data_folders for f in os.listdir(os.path.join(DATA_PATH, pat, 'data', 'Seurat')) if f.startswith(args.regulon) and f.endswith('.tsv')
+        os.path.join(DATA_PATH, pat, 'data', 'Seurat', 'regulon', f) 
+        for pat in pat_spec_data_folders 
+        for f in _safe_listdir(os.path.join(DATA_PATH, pat, 'data', 'Seurat', 'regulon')) 
+        if f.startswith(args.regulon) and f.endswith('.tsv')
     ]
 
     # Running
@@ -50,14 +67,17 @@ if __name__ == '__main__':
 
     Parallel(n_jobs=num_cores)(delayed(to_pickle)(fn) for fn in tqdm(data_files))
         
-    # Saving cell type-specific VIPER data
+    # Saving cell type specific VIPER data
     DATA_PATH = os.path.join(args.outdir, 'cell_types')
     
     # Defining path names, creating pickle folders
-    type_spec_data_folders = [folder for folder in os.listdir(DATA_PATH) if folder not in ['.ipynb_checkpoints']]
-    _ = [os.makedirs(os.path.join(DATA_PATH, t, 'data', 'Seurat', 'pickle'), exist_ok=True) for t in type_spec_data_folders]
+    type_spec_data_folders = [folder for folder in next(os.walk(DATA_PATH))[1] if folder not in ['.ipynb_checkpoints']]
+    _ = [os.makedirs(os.path.join(DATA_PATH, t, 'data', 'Seurat', 'regulon', 'pickle'), exist_ok=True) for t in type_spec_data_folders]
     data_files = [
-        os.path.join(DATA_PATH, t, 'data', 'Seurat', f) for t in type_spec_data_folders for f in os.listdir(os.path.join(DATA_PATH, t, 'data', 'Seurat')) if f.startswith(args.regulon) and f.endswith('.tsv')
+        os.path.join(DATA_PATH, t, 'data', 'Seurat', 'regulon', f) 
+        for t in type_spec_data_folders 
+        for f in _safe_listdir(os.path.join(DATA_PATH, t, 'data', 'Seurat', 'regulon')) 
+        if f.startswith(args.regulon) and f.endswith('.tsv')
     ]
 
     # Running
