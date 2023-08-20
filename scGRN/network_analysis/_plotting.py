@@ -18,7 +18,11 @@ from ..utils import scale
 from ._community import stopwords
 from ._auxiliary_data import load_gene_func_db
 
+from wordcloud import WordCloud
+from tqdm.notebook import tqdm
+
 from typing import Dict, Tuple
+from itertools import chain  # for aggregate functions
 
 
 def plot_avail_cell_types(meta: pd.DataFrame, save_as: str = None):
@@ -522,14 +526,37 @@ def plot_cloud(
     squeezed_pos: Dict[str, Tuple[float, float]], 
     ax: Axes, 
     anno_db: str, 
+    display_func: bool = False, 
     filter_genes: bool = True, 
     limit_anno_until: int = 50, 
-    display_func: bool = False, 
     if_betweenness: bool = True, 
-    k: int = 3000
+    k: int = 3000,
 ): 
     """
-    Plot word cloud depicting communities in the graph. FIXME that indicates the function(s) of each gene cluster.
+    Plot word clouds depicting communities in the graph. Communities will be laid out on the 
+    periphery, with each node being a gene. Either gene list or gene function will be displayed on
+    top of each community (i.e. cloud of nodes). If gene list is displayed `display_func=False`, then
+    the size of the gene corresponds to the centrality of the gene inside corresponding community. If
+    gene function is displayed `display_func=True`, then the size of the function corresponds to the
+    frequency of the functional term attributed to the top central genes.
+
+    :param G: NetworkX graph
+    :param partition: A dictionary where key is the node name and value is the community number, same
+        as `node_to_community`
+    :param squeezed_pos: A dictionary containing node coordinates (preferably squeezed version to 
+        speed up computation, look for `squeeze_graph` function)
+    :param ax: an matplotlib axis object
+    :param anno_db: a database tag, could be MSigDB, GO, DoRothEA, or etc. Look in 
+        `load_gene_func_db` for the full list
+    :param display_func: True if display the gene functions in the word cloud, False if display gene
+        names
+    :param filter_genes: True if use only top `limit_anno_until` important genes (based on centrality)
+    :param limit_anno_until: Number of genes to use to calculate wordcloud
+    :param if_betweenness: True if use betweenness centrality as node importance score, False if use
+        closeness centrality
+    :param k: Use k nodes to estimate centrality
+
+    :returns: The axis with the plotted communities as word clouds
     """
     
     # Loading the gene functional annotation
@@ -542,38 +569,39 @@ def plot_cloud(
             partition_genes_[i] = [gene]
         else:
             partition_genes_[i] += [gene]
+
+    compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
+    distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+    partition_genes = {}
+    t = tqdm(partition_genes_.items())
+
+    # Whether to filter the genes on which we compute the word cloud (most important genes)
+    if filter_genes:
+        for i, genes in t:
+            t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
+            top_len = min(limit_anno_until, len(genes))
+            top_gene_scores = dict(
+                sorted(
+                    compute_centrality(
+                        G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
+                    ).items(), 
+                    key=lambda x: x[1], reverse=True
+                )[:top_len]
+            )
+            # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
+            # displaying wordclouds (higher score - higher "frequency" or word size)
+            norm_top_gene_scores = dict(
+                zip(
+                    top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
+                )
+            )
+            partition_genes[i] = norm_top_gene_scores
+        print('Filtered genes for generating the function word cloud..')
+    else:
+        partition_genes = {{gene_: 1 for gene_ in gene_list} for i, gene_list in partition_genes_.items()}
            
     # If display gene function in the word clouds
     if display_func:
-            
-        # Whether to filter the genes on which we compute the word cloud (most important genes)
-        if filter_genes:
-            compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
-            distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
-            partition_genes = {}
-            t = tqdm(partition_genes_.items())
-            for i, genes in t:
-                t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
-                top_len = min(limit_anno_until, len(genes))
-                top_gene_scores = dict(
-                    sorted(
-                        compute_centrality(
-                            G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
-                        ).items(), 
-                        key=lambda x: x[1], reverse=True
-                    )[:top_len]
-                )
-                # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
-                # displaying wordclouds (higher score - higher "frequency" or word size)
-                norm_top_gene_scores = dict(
-                    zip(
-                        top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
-                    )
-                )
-                partition_genes[i] = norm_top_gene_scores
-            print('Filtered genes for generating the function word cloud..')
-        else:
-            partition_genes = {{gene_: 1 for gene_ in gene_list} for i, gene_list in partition_genes_.items()}
         
         # Computing functional annotation for each cluster as a concatenated list of annotations
         # Each annotation is weighted by its duplication gene_score times (e.g. a gene has score = 2 -> 
@@ -600,31 +628,6 @@ def plot_cloud(
     # Display main genes in decreasing order of importance (top `top_len` genes)
     else:
         
-        compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
-        distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
-        partition_genes = {}
-        t = tqdm(partition_genes_.items())
-        for i, genes in t:
-            t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
-            top_len = min(limit_anno_until, len(genes))
-            top_gene_scores = dict(
-                sorted(
-                    compute_centrality(
-                        G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
-                    ).items(), 
-                    key=lambda x: x[1], reverse=True
-                )[:top_len]
-            )
-            # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
-            # displaying wordclouds (higher score - higher "frequency" or word size)
-            norm_top_gene_scores = dict(
-                zip(
-                    top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
-                )
-            )
-            partition_genes[i] = norm_top_gene_scores
-        print('Obtained top genes for generating the gene word cloud..')
-        
         wordclouds = {
             i: WordCloud(
                 max_words=30, min_font_size=15, background_color='white', mask=get_elipsis_mask()
@@ -632,7 +635,7 @@ def plot_cloud(
         }
         
     
-    # Plotting
+    # Plotting the word cloud
     partition_coords = {}
     for gene, coords in squeezed_pos.items():
         if partition[gene] not in partition_coords:
