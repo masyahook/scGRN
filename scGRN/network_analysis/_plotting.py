@@ -15,6 +15,11 @@ from ..config import _GGPLOT_COLORS as colors
 from ..config import _NODE_SIZE
 from ..utils import scale
 
+from ._community import stopwords
+from ._auxiliary_data import load_gene_func_db
+
+from typing import Dict, Tuple
+
 
 def plot_avail_cell_types(meta: pd.DataFrame, save_as: str = None):
     """
@@ -205,17 +210,17 @@ def fancy_draw_network_edge_labels(
 
 
 def draw_graph(
-        G: nx.DiGraph,
-        pos: dict,
-        ax: Axes,
-        TF_names: list = None,
-        label_edges: bool = True,
-        node_size: float = _NODE_SIZE,
-        alpha: float = _ALPHA,
-        if_alpha_edges: bool = False,
-        plot_cmap: bool = True,
-        cmap: ListedColormap = plt.cm.plasma,
-        label_font_size: float = 12
+    G: nx.DiGraph,
+    pos: dict,
+    ax: Axes,
+    TF_names: list = None,
+    label_edges: bool = True,
+    node_size: float = _NODE_SIZE,
+    alpha: float = _ALPHA,
+    if_alpha_edges: bool = False,
+    plot_cmap: bool = True,
+    cmap: ListedColormap = plt.cm.plasma,
+    label_font_size: float = 12
 ) -> Axes:
     """
     Draw gene regulatory network using NetworkX.
@@ -313,7 +318,7 @@ def draw_graph(
     return ax
 
 
-def graph_stats_vs_num_cells(graph_stats: dict, save_as: str = None) -> np.array:
+def graph_stats_vs_num_cells(graph_stats: dict, save_as: str = None) -> np.ndarray:
     """
     Plot graph properties of inferred GRNs against the number of cells of corresponding scRNA-seq matrix.
 
@@ -388,7 +393,7 @@ def graph_stats_vs_num_cells(graph_stats: dict, save_as: str = None) -> np.array
     return ax
 
 
-def graph_edge_stats_vs_num_cells(graph_stats: dict, save_as: str = None) -> np.array:
+def graph_edge_stats_vs_num_cells(graph_stats: dict, save_as: str = None) -> np.ndarray:
     """
     Plot graph edges properties of inferred GRNs against the number of cells of corresponding scRNA-seq matrix.
 
@@ -486,3 +491,158 @@ def graph_num_regulons_vs_num_cells(graph_stats: dict, save_as: str = None) -> s
             plt.savefig(save_as, bbox_inches='tight')
 
     return g
+
+
+def get_elipsis_mask(
+    h: float = 600,
+    w: float = 800
+) -> np.ndarray:
+    """
+    Create an elipsis mask, helpful when passing to WordCloud() to visualize a community.
+    
+    :param h: height of the elipsis
+    :param w: weight of the elipsis
+    
+    :returns: an (h x w) boolean matrix depicting an elipsis mask 
+    """
+
+    center = (int(w/2), int(h/2))
+    radius_x = w // 2
+    radius_y = h // 2
+
+    Y, X = np.ogrid[:h, :w]
+    mask = ((X - center[0])**2/radius_x**2 + (Y - center[1])**2/radius_y**2 >= 1)*255
+
+    return mask
+
+
+def plot_cloud(
+    G: nx.DiGraph,
+    partition: Dict[str, int],
+    squeezed_pos: Dict[str, Tuple[float, float]], 
+    ax: Axes, 
+    anno_db: str, 
+    filter_genes: bool = True, 
+    limit_anno_until: int = 50, 
+    display_func: bool = False, 
+    if_betweenness: bool = True, 
+    k: int = 3000
+): 
+    """
+    Plot word cloud depicting communities in the graph. FIXME that indicates the function(s) of each gene cluster.
+    """
+    
+    # Loading the gene functional annotation
+    gene_func = load_gene_func_db(anno_db, reload=False, as_series=True)
+    
+    # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
+    partition_genes_ = {}
+    for gene, i in partition.items():
+        if i not in partition_genes_.keys():
+            partition_genes_[i] = [gene]
+        else:
+            partition_genes_[i] += [gene]
+           
+    # If display gene function in the word clouds
+    if display_func:
+            
+        # Whether to filter the genes on which we compute the word cloud (most important genes)
+        if filter_genes:
+            compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
+            distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+            partition_genes = {}
+            t = tqdm(partition_genes_.items())
+            for i, genes in t:
+                t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
+                top_len = min(limit_anno_until, len(genes))
+                top_gene_scores = dict(
+                    sorted(
+                        compute_centrality(
+                            G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
+                        ).items(), 
+                        key=lambda x: x[1], reverse=True
+                    )[:top_len]
+                )
+                # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
+                # displaying wordclouds (higher score - higher "frequency" or word size)
+                norm_top_gene_scores = dict(
+                    zip(
+                        top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
+                    )
+                )
+                partition_genes[i] = norm_top_gene_scores
+            print('Filtered genes for generating the function word cloud..')
+        else:
+            partition_genes = {{gene_: 1 for gene_ in gene_list} for i, gene_list in partition_genes_.items()}
+        
+        # Computing functional annotation for each cluster as a concatenated list of annotations
+        # Each annotation is weighted by its duplication gene_score times (e.g. a gene has score = 2 -> 
+        # the functional annotation is duplicated and have bigger font in WordCloud)
+        partition_funcs = {
+            i: ' '.join(
+                chain.from_iterable([
+                   gene_func[gene_func.index == gene].to_list()*gene_score 
+                        for gene, gene_score in gene_score_list.items()
+            ])) for i, gene_score_list in partition_genes.items()
+        }
+
+        # Generating word counts from aggregated gene annotation texts -> obtaining main (most frequent) function tokens
+        word_counts = {i: WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
+        word_counts = {
+            i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
+        }  # dealing with no word case
+        wordclouds = {
+            i: WordCloud(
+                max_words=30, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+            ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
+        }
+        
+    # Display main genes in decreasing order of importance (top `top_len` genes)
+    else:
+        
+        compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
+        distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+        partition_genes = {}
+        t = tqdm(partition_genes_.items())
+        for i, genes in t:
+            t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
+            top_len = min(limit_anno_until, len(genes))
+            top_gene_scores = dict(
+                sorted(
+                    compute_centrality(
+                        G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
+                    ).items(), 
+                    key=lambda x: x[1], reverse=True
+                )[:top_len]
+            )
+            # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
+            # displaying wordclouds (higher score - higher "frequency" or word size)
+            norm_top_gene_scores = dict(
+                zip(
+                    top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
+                )
+            )
+            partition_genes[i] = norm_top_gene_scores
+        print('Obtained top genes for generating the gene word cloud..')
+        
+        wordclouds = {
+            i: WordCloud(
+                max_words=30, min_font_size=15, background_color='white', mask=get_elipsis_mask()
+            ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in partition_genes.items()
+        }
+        
+    
+    # Plotting
+    partition_coords = {}
+    for gene, coords in squeezed_pos.items():
+        if partition[gene] not in partition_coords:
+            partition_coords[partition[gene]] = [coords]
+        else:
+            partition_coords[partition[gene]] += [coords]
+    for i, coords in partition_coords.items():
+        x, y = zip(*coords)
+        min_x, max_x = min(x), max(x)
+        min_y, max_y = min(y), max(y)
+        ax.imshow(wordclouds[i], interpolation='bilinear', extent=[min_x, max_x, min_y, max_y])
+    
+    return ax

@@ -5,7 +5,7 @@ import os
 home_dir = os.path.expanduser('~')
 os.chdir(os.path.expanduser('~'))
 
-from func import run_enrichr
+from ._enrichment import run_enrichr
 
 if __name__ == '__main__':
 

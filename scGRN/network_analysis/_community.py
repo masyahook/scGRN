@@ -1,35 +1,34 @@
 
 """Community analysis."""
 
-# General
-import os
-import warnings
+# Data management
+import math
 
 # Tools/utils
 import multiprocessing
-from tqdm.notebook import tqdm
-from tqdm import tqdm as tqdm_cli
-from itertools import chain  # for aggregate functions
 
-# Data management
-import math
-import numpy as np
-import pandas as pd
-import networkx as nx
+# General
+import os
+import warnings
+from itertools import chain  # for aggregate functions
+from typing import Dict, List, Tuple
+
+import colorcet as cc
 import igraph as ig
 import leidenalg as la
-from community import community_louvain
 
 # Visualization
 import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+import pandas as pd
 import seaborn as sns
-import colorcet as cc
+from community import community_louvain
 from matplotlib.colors import ListedColormap
-from wordcloud import WordCloud, STOPWORDS
 from termcolor import colored  # colored text output
-
-from typing import Dict, Tuple, List
-
+from tqdm import tqdm as tqdm_cli
+from tqdm.notebook import tqdm
+from wordcloud import STOPWORDS, WordCloud
 
 stopwords = STOPWORDS.union({
     'regulation', 'activity', 'positive', 'negative', 'catabolic', 'process', 'protein', 'complex', 
@@ -56,7 +55,7 @@ def netgraph_community_layout(
     :param node_scale: A scale factor for positioning nodes
     :param seed: A random seed
 
-    :returns: A dictionary where each 
+    :returns: A dictionary where key is the node name and value is the tuple of coordinates
     """
 
     # assert that there multiple communities in the graph; otherwise abort
@@ -120,8 +119,13 @@ def _get_community_positions(
 
     https://github.com/paulbrodersen/netgraph/blob/e555201737f43f8d3e1027d9e1f8c8c8ab154361/netgraph/_node_layout.py#L1575
 
+    :param G: NetworkX graph
+    :param node_to_community: A dictionary where key is the node name and value is the community number
+    :param community_scale: A scale factor for positioning communities
+    :param seed: A random seed
+    :param simple: False if use weighted graph, True otherwise
 
-
+    :returns: A dictionary where key is the node name and value is the tuple of coordinates
     """
     
     # create a weighted graph, in which each node corresponds to a community,
@@ -189,10 +193,24 @@ def _find_between_community_edges(
 
     return edges
 
-def _get_node_positions(G, node_to_community, node_scale, seed):
+
+def _get_node_positions(
+    G: nx.DiGraph, 
+    node_to_community: Dict[str, int], 
+    node_scale: float = 1., 
+    seed: int = 42, 
+) -> Dict[str, Tuple[float, float]]:
     """
-    Positions nodes within communities.
+    Get node positions within each community. 
+
+    :param G: NetworkX graph
+    :param node_to_community: A dictionary where key is the node name and value is the community number
+    :param community_scale: A scale factor for positioning communities
+    :param seed: A random seed
+
+    :returns: A dictionary where key is the node name and value is the tuple of coordinates
     """
+
     communities = dict()
     for node, community in node_to_community.items():
         try:
@@ -208,10 +226,23 @@ def _get_node_positions(G, node_to_community, node_scale, seed):
 
     return pos
 
-def squeeze_graph(G, partition, approximate_size=4000):
+
+def squeeze_graph(
+    G: nx.DiGraph, 
+    partition: Dict[str, int], 
+    keep_num_nodes: int = 4000,
+    keep_num_edges: int = 20000
+) -> Tuple[nx.DiGraph, Dict[str, int]]:
     """
-    Squeeze graph by picking only top nodes (according to number of connections) in each partition. This
-    step is needed to speed up the networkx visualization and show only the general POV on the graph.
+    Squeeze graph by picking only top nodes (according to number of connections) in each partition. 
+    This function is useful when visualizing communities using networkx as plotting the whole graph 
+    is computationally expensive, plotting squeezed graph shows general pattern.
+
+    :param G: NetworkX graph
+    :param partition: A dictionary where key is the node name and value is the community number, same
+        as `node_to_community`
+
+    :returns: A tuple containing a squeezed graph and squeezed partition dictionary    
     """
     
     #### STEP 1 - filtering nodes
@@ -227,7 +258,7 @@ def squeeze_graph(G, partition, approximate_size=4000):
     normalized_partition_size = {i: (size // min_partition_size) for i, size in partition_sizes.items()}
     
     # Getting scale factor - to get approximately size of the graph close to approximate_size
-    scale_factor = math.ceil(approximate_size / sum(normalized_partition_size.values()))
+    scale_factor = math.ceil(keep_num_nodes / sum(normalized_partition_size.values()))
     squeezed_partition = {i: (size * scale_factor) for i, size in normalized_partition_size.items()}
     
     top_nodes = []
@@ -257,155 +288,16 @@ def squeeze_graph(G, partition, approximate_size=4000):
     #### STEP 2 - filtering edges
     
     # Setting up the size of the squeezed graph (number of edges)
-    keep_num_edges = 20000
-    edges_to_keep = \
-        list(
-            dict(
-                sorted(
-                    {
-                        (st, end): data['importance'] for st, end, data in filtered_G.edges(data=True)
-                    }.items(), key=lambda x: x[1], reverse=True)[:keep_num_edges]
-            ).keys()
-    )
+    edges_to_keep = list(dict(
+        sorted(
+            {
+                (st, end): data['importance'] for st, end, data in filtered_G.edges(data=True)
+            }.items(), key=lambda x: x[1], reverse=True)[:keep_num_edges]
+    ).keys())
     squeezed_G = filtered_G.edge_subgraph(edges_to_keep)
     squeezed_partition = {node: i for node, i in filtered_partition.items() if node in squeezed_G.nodes()}
     
     return squeezed_G, squeezed_partition
-
-
-def get_elipsis_mask():
-        h, w = 600, 800
-        center = (int(w/2), int(h/2))
-        radius_x = w // 2
-        radius_y = h // 2
-
-        Y, X = np.ogrid[:h, :w]
-        mask = ((X - center[0])**2/radius_x**2 + (Y - center[1])**2/radius_y**2 >= 1)*255
-
-        return mask
-
-
-def plot_cloud(G, partition, squeezed_pos, ax, anno_db, filter_genes=True, 
-               limit_anno_until=50, display_func=False, if_betweenness=True, 
-               k=3000): 
-    """
-    Plot word cloud that indicates the function(s) of each gene cluster.
-    """
-    
-    # Loading the gene functional annotation
-    gene_func = load_gene_func_db(anno_db, reload=False, as_series=True)
-    
-    # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
-    partition_genes_ = {}
-    for gene, i in partition.items():
-        if i not in partition_genes_.keys():
-            partition_genes_[i] = [gene]
-        else:
-            partition_genes_[i] += [gene]
-           
-    # If display gene function in the word clouds
-    if display_func:
-            
-        # Whether to filter the genes on which we compute the word cloud (most important genes)
-        if filter_genes:
-            compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
-            distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
-            partition_genes = {}
-            t = tqdm(partition_genes_.items())
-            for i, genes in t:
-                t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
-                top_len = min(limit_anno_until, len(genes))
-                top_gene_scores = dict(
-                    sorted(
-                        compute_centrality(
-                            G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
-                        ).items(), 
-                        key=lambda x: x[1], reverse=True
-                    )[:top_len]
-                )
-                # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
-                # displaying wordclouds (higher score - higher "frequency" or word size)
-                norm_top_gene_scores = dict(
-                    zip(
-                        top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
-                    )
-                )
-                partition_genes[i] = norm_top_gene_scores
-            print('Filtered genes for generating the function word cloud..')
-        else:
-            partition_genes = {{gene_: 1 for gene_ in gene_list} for i, gene_list in partition_genes_.items()}
-        
-        # Computing functional annotation for each cluster as a concatenated list of annotations
-        # Each annotation is weighted by its duplication gene_score times (e.g. a gene has score = 2 -> 
-        # the functional annotation is duplicated and have bigger font in WordCloud)
-        partition_funcs = {
-            i: ' '.join(
-                chain.from_iterable([
-                   gene_func[gene_func.index == gene].to_list()*gene_score 
-                        for gene, gene_score in gene_score_list.items()
-            ])) for i, gene_score_list in partition_genes.items()
-        }
-
-        # Generating word counts from aggregated gene annotation texts -> obtaining main (most frequent) function tokens
-        word_counts = {i: WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
-        word_counts = {
-            i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
-        }  # dealing with no word case
-        wordclouds = {
-            i: WordCloud(
-                max_words=30, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
-            ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
-        }
-        
-    # Display main genes in decreasing order of importance (top `top_len` genes)
-    else:
-        
-        compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
-        distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
-        partition_genes = {}
-        t = tqdm(partition_genes_.items())
-        for i, genes in t:
-            t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
-            top_len = min(limit_anno_until, len(genes))
-            top_gene_scores = dict(
-                sorted(
-                    compute_centrality(
-                        G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
-                    ).items(), 
-                    key=lambda x: x[1], reverse=True
-                )[:top_len]
-            )
-            # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
-            # displaying wordclouds (higher score - higher "frequency" or word size)
-            norm_top_gene_scores = dict(
-                zip(
-                    top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
-                )
-            )
-            partition_genes[i] = norm_top_gene_scores
-        print('Obtained top genes for generating the gene word cloud..')
-        
-        wordclouds = {
-            i: WordCloud(
-                max_words=30, min_font_size=15, background_color='white', mask=get_elipsis_mask()
-            ).generate_from_frequencies(gene_score_dict) for i, gene_score_dict in partition_genes.items()
-        }
-        
-    
-    # Plotting
-    partition_coords = {}
-    for gene, coords in squeezed_pos.items():
-        if partition[gene] not in partition_coords:
-            partition_coords[partition[gene]] = [coords]
-        else:
-            partition_coords[partition[gene]] += [coords]
-    for i, coords in partition_coords.items():
-        x, y = zip(*coords)
-        min_x, max_x = min(x), max(x)
-        min_y, max_y = min(y), max(y)
-        ax.imshow(wordclouds[i], interpolation='bilinear', extent=[min_x, max_x, min_y, max_y])
-    
-    return ax
 
            
 def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_betweenness=True, 
