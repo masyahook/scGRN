@@ -2,14 +2,8 @@
 """Community analysis."""
 
 import itertools
-
-# Data management
 import math
-
-# Tools/utils
 import multiprocessing
-
-# General
 import os
 import warnings
 from itertools import chain  # for aggregate functions
@@ -19,8 +13,6 @@ from typing import Dict, List, Tuple, Union
 import colorcet as cc
 import igraph as ig
 import leidenalg as la
-
-# Visualization
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -32,18 +24,13 @@ from matplotlib.colors import ListedColormap
 from termcolor import colored  # colored text output
 from tqdm import tqdm as tqdm_cli
 from tqdm.notebook import tqdm
-from wordcloud import STOPWORDS, WordCloud
+from wordcloud import WordCloud
 
-from ..config import _DATA_HOME, _META_FILE, _PROJ_HOME
+from ..config import _DATA_HOME, _META_FILE, _PROJ_HOME, _STOPWORDS
 from ..utils import scale
 from ._auxiliary_data import load_gene_func_db
 from ._data_processing import get_nx_graph
 from ._plotting import get_elipsis_mask
-
-stopwords = STOPWORDS.union({
-    'regulation', 'activity', 'positive', 'negative', 'catabolic', 'process', 'protein', 'complex', 
-    'binding', 'response', 'gene', 'genes', 'encoding', 'defining', 'GeneID', 'regulated',
-})
 
 
 def netgraph_community_layout(
@@ -549,7 +536,7 @@ def process_communities(
 
             # Saving most frequent function words
             freq_words = WordCloud(
-                max_words=30, min_font_size=15, stopwords=stopwords
+                max_words=30, min_font_size=15, stopwords=_STOPWORDS
             ).process_text(curr_partition_funcs[i])
             freq_words = dict(
                 sorted(freq_words.items(), key=lambda x: x[1], reverse=True)
@@ -686,7 +673,13 @@ def process_communities(
     )
     
     # Loading the graph
-    G = get_nx_graph(cell_type=cell_type, net_type='all', pat=pat, filtered=filter_quantile)
+    G = get_nx_graph(
+        cell_type=cell_type, 
+        net_type='all', 
+        pat=pat, 
+        filtered=filter_quantile,
+        tolerate_missing=False
+    )
     print(f"Loaded the graph: {colored('pat', 'green')}='{colored(pat, 'red')}', "
           f"{colored('cell_type', 'green')}='{colored(cell_type, 'red')}', "
           f"{colored('net_type', 'green')}='{colored('all', 'red')}'\n")
@@ -824,14 +817,14 @@ def process_communities(
             }
         else:
             word_counts = {
-                i: WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in curr_partition_funcs.items()
+                i: WordCloud(max_words=30, min_font_size=15, stopwords=_STOPWORDS).process_text(text) for i, text in curr_partition_funcs.items()
             }
             word_counts = {
                 i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
             }  # dealing with no word case
             wordclouds = {
                 i: WordCloud(
-                    max_words=30, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+                    max_words=30, min_font_size=15, stopwords=_STOPWORDS, background_color='white', mask=get_elipsis_mask()
                 ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
             }
             
@@ -847,7 +840,7 @@ def process_communities(
         nx.draw(squeezed_G, squeezed_pos, ax=ax, arrowstyle="->", arrowsize=20, 
                 connectionstyle='arc3, rad = 0.25', edge_color='gray', width=0.4, 
                 node_color='k', node_size=50, alpha=0.02)
-        nx.draw_networkx_nodes(squeezed_G, squeezed_pos, ax=ax, node_size=100, 
+        nx.draw_networkx_nodes(squeezed_G, squeezed_pos, ax=ax, node_size=20, 
                                nodelist=list(squeezed_partition.keys()), 
                                node_color=list(squeezed_partition.values()), 
                                cmap=cmap, alpha=0.005)

@@ -2,6 +2,8 @@
 ### Here we will store package constants used everywhere in the pipeline ###
 ############################################################################
 
+from wordcloud import STOPWORDS
+
 # Path names to files
 _PROJ_HOME = '/gpfs/projects/bsc08/shared_projects/scGRN_analysis'
 _DATA_HOME = f'{_PROJ_HOME}/Data_home/res/covid_19'
@@ -16,3 +18,8 @@ _GGPLOT_COLORS = dict(green='#39B600', yellow='#D89000', red='#F8766D', blue='#0
 _SEED = 42  # random seed
 _NODE_SIZE = 1200  # the node size when plotting
 _ALPHA = 0.5  # transparency of the nodes/edges when plotting
+
+_STOPWORDS = STOPWORDS.union({
+    'regulation', 'activity', 'positive', 'negative', 'catabolic', 'process', 'protein', 'complex', 
+    'binding', 'response', 'gene', 'genes', 'encoding', 'defining', 'GeneID', 'regulated',
+})

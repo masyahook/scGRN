@@ -49,15 +49,23 @@ fi
 LOG_OUT=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}_${CELL_TYPE}_COMMUNITY_ANA_${ALGO}_${SLURM_JOBID}.out
 LOG_ERR=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}_${CELL_TYPE}_COMMUNITY_ANA_${ALGO}_${SLURM_JOBID}.err
 
+echo $PROJ_HOME > $LOG_OUT
+
 ##########################################
 ############### Running ##################
 ##########################################
+
+# Workaround as python is picky when working with relative packages
+SCRIPT_DIR="$(cd ../../.. && pwd)"
+export PYTHONPATH="$PYTHONPATH:$SCRIPT_DIR"
+echo $PYTHONPATH
+cd ../../..
 
 # Creating log files
 printf "Performing community analysis ${PATIENT} (${CELL_TYPE}) data with ${ALGO} algorithm..\n\n\n" > $LOG_OUT
 printf "" > $LOG_ERR
 
 # Running community analysis based on input parameters
-python ../community_ana.py -p $PATIENT -c $CELL_TYPE -a $ALGO 2> $LOG_ERR 1> $LOG_OUT && \
+python -m scGRN.network_analysis.community_ana -p $PATIENT -c $CELL_TYPE -a $ALGO 2> $LOG_ERR 1> $LOG_OUT && \
 printf "Finished with community analysis..\n\n" >> $LOG_OUT || \
 printf "Failed community analysis..\n\n" >> $LOG_OUT

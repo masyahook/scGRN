@@ -15,12 +15,10 @@ from matplotlib.transforms import Bbox
 from tqdm.notebook import tqdm
 from wordcloud import WordCloud
 
-from ..config import _ALPHA
+from ..config import _ALPHA, _NODE_SIZE, _STOPWORDS
 from ..config import _GGPLOT_COLORS as colors
-from ..config import _NODE_SIZE
 from ..utils import scale
 from ._auxiliary_data import load_gene_func_db
-from ._community import stopwords
 
 
 def plot_avail_cell_types(meta: pd.DataFrame, save_as: str = None):
@@ -613,13 +611,13 @@ def plot_cloud(
         }
 
         # Generating word counts from aggregated gene annotation texts -> obtaining main (most frequent) function tokens
-        word_counts = {i: WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in partition_funcs.items()}
+        word_counts = {i: WordCloud(max_words=30, min_font_size=15, stopwords=_STOPWORDS).process_text(text) for i, text in partition_funcs.items()}
         word_counts = {
             i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
         }  # dealing with no word case
         wordclouds = {
             i: WordCloud(
-                max_words=30, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+                max_words=30, min_font_size=15, stopwords=_STOPWORDS, background_color='white', mask=get_elipsis_mask()
             ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
         }
         
