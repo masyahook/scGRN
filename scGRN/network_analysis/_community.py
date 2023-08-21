@@ -1,6 +1,8 @@
 
 """Community analysis."""
 
+import itertools
+
 # Data management
 import math
 
@@ -11,7 +13,8 @@ import multiprocessing
 import os
 import warnings
 from itertools import chain  # for aggregate functions
-from typing import Dict, List, Tuple
+from multiprocessing import Pool
+from typing import Dict, List, Tuple, Union
 
 import colorcet as cc
 import igraph as ig
@@ -31,20 +34,16 @@ from tqdm import tqdm as tqdm_cli
 from tqdm.notebook import tqdm
 from wordcloud import STOPWORDS, WordCloud
 
+from ..config import _DATA_HOME, _META_FILE, _PROJ_HOME
+from ..utils import scale
+from ._auxiliary_data import load_gene_func_db
+from ._data_processing import get_nx_graph
+from ._plotting import get_elipsis_mask
+
 stopwords = STOPWORDS.union({
     'regulation', 'activity', 'positive', 'negative', 'catabolic', 'process', 'protein', 'complex', 
     'binding', 'response', 'gene', 'genes', 'encoding', 'defining', 'GeneID', 'regulated',
 })
-
-from ..config import _DATA_HOME, _PROJ_HOME, _META_FILE
-from ._data_processing import get_nx_graph
-from ._auxiliary_data import load_gene_func_db
-from ._plotting import get_elipsis_mask
-
-from typing import Union
-
-from multiprocessing import Pool
-import itertools
 
 
 def netgraph_community_layout(
@@ -639,9 +638,9 @@ def process_communities(
         # Cell-type aggregated data
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
         
-        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', f'raw_data')
+        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', 'raw_data')
         data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
-        data_as = os.path.join(data_to, f'raw_data_communities_info.pickle')
+        data_as = os.path.join(data_to, 'raw_data_communities_info.pickle')
         
     elif pat in ['C', 'M', 'S']:
         
