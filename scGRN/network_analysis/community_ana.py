@@ -1,22 +1,13 @@
+"""Run community analysis on a specific gene-regulatory network (GRN)."""
+
 import argparse
-import sys
-import os
 
-import pandas as pd
-
-# Setting working directory as home
-home_dir = os.path.expanduser('~')
-os.chdir(os.path.expanduser('~'))
-
-# Adding home directory to the PYTHONPATH
-sys.path.insert(0, home_dir)
-
-from src.func import process_communities
+from ._community import process_communities
 
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Run community analysis on a specific GRN.')
-    parser.add_argument('-d', '--data', default='raw_data', type=str, help="The name of the data - starts with 'raw_data' and could end with cell type", required=True)
+    parser.add_argument('-c', '--cell_type', default='all', type=str, help="The cell type identifier to run community analysis on", required=True)
     parser.add_argument('-p', '--patient', type=str, default=None, help='Patient ID')
     parser.add_argument('-a', '--algo', type=str, default='leiden', help="The name of the clustering algorithm - either 'leiden' or 'louvain'")
     parser.add_argument('-ib', '--if_betweenness', type=bool, default=True, help='True if use betweeness metric to compute centrality, False if use closeness centrality')
@@ -30,7 +21,7 @@ if __name__ == '__main__':
     
     # Running process communities script
     process_communities(
-        pat=args.patient, data=args.data, algo=args.algo, if_betweenness=args.if_betweenness, 
+        pat=args.patient, cell_type=args.cell_type, algo=args.algo, if_betweenness=args.if_betweenness, 
         limit_anno_until=args.limit_anno_until, k=args.k_centrality, 
         save_top_intercommunity_links_until=args.top_intercom_links, 
         other_functions_until=args.other_functions_until,

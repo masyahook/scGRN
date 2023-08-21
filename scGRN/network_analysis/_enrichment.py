@@ -1,4 +1,4 @@
-"""Run enrichment analysis."""
+"""Enrichment analysis."""
 
 import json
 import requests
