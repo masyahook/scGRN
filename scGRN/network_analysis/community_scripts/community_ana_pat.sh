@@ -8,12 +8,6 @@
 #####################################################################
 #####################################################################
 
-# Loading the modules
-# module load python/3.7.4
-
-# export PATH=/home/bsc08/bsc08890/.local/bin:/home/bsc08/bsc08890/bin:$PATH
-# export PYTHONPATH=/home/bsc08/bsc08890/.local/lib/python3.7/site-packages:$PYTHONPATH
-
 ##########################################
 ############# Input params ###############
 ##########################################
@@ -48,8 +42,6 @@ fi
 
 LOG_OUT=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}_${CELL_TYPE}_COMMUNITY_ANA_${ALGO}_${SLURM_JOBID}.out
 LOG_ERR=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}_${CELL_TYPE}_COMMUNITY_ANA_${ALGO}_${SLURM_JOBID}.err
-
-echo $PROJ_HOME > $LOG_OUT
 
 ##########################################
 ############### Running ##################

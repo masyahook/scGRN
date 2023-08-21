@@ -8,12 +8,6 @@
 ############################################################
 ############################################################
 
-# Loading the modules
-# module load python/3.7.4
-
-# export PATH=/home/bsc08/bsc08890/.local/bin:/home/bsc08/bsc08890/bin:$PATH
-# export PYTHONPATH=/home/bsc08/bsc08890/.local/lib/python3.7/site-packages:$PYTHONPATH
-
 ##########################################
 ############# Input params ###############
 ##########################################
@@ -53,11 +47,17 @@ LOG_ERR=${LOG_OUTPUT}/${PAT_TYPE}_type_${TASK_NUM}_${CELL_TYPE}_COMMUNITY_ANA_${
 ############### Running ##################
 ##########################################
 
+# Workaround as python is picky when working with relative packages
+SCRIPT_DIR="$(cd ../../.. && pwd)"
+export PYTHONPATH="$PYTHONPATH:$SCRIPT_DIR"
+echo $PYTHONPATH
+cd ../../..
+
 # Creating log files
 printf "Performing community analysis cell type specific, pat type aggregated '${PAT_TYPE}' (${CELL_TYPE}) data with ${ALGO} algorithm..\n\n\n" > $LOG_OUT
 printf "" > $LOG_ERR
 
 # Running community analysis based on input parameters
-python ../community_ana.py -p $PAT_TYPE -c $CELL_TYPE -a $ALGO 2> $LOG_ERR 1> $LOG_OUT && \
+python -m scGRN.network_analysis.community_ana -p $PAT_TYPE -c $CELL_TYPE -a $ALGO 2> $LOG_ERR 1> $LOG_OUT && \
 printf "Finished with community analysis..\n\n" >> $LOG_OUT || \
 printf "Failed community analysis..\n\n" >> $LOG_OUT
