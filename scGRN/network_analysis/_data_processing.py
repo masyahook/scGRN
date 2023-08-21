@@ -489,9 +489,9 @@ def get_viper_mat(
 def get_adj_list(
     cell_type: str,
     net_type: str,
-    pat: str = None,
+    pat: Union[str, None] = None,
     method: str = 'grnboost2',
-    filtered: float = None,
+    filtered: Union[float, None] = None,
     data_home: str = _DATA_HOME,
     tolerate_missing: bool = True
 ) -> Union[pd.DataFrame, None]:

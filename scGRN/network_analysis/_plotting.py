@@ -1,5 +1,8 @@
 """Plotting functions for network analysis."""
 
+from itertools import chain  # for aggregate functions
+from typing import Dict, Tuple
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -9,20 +12,15 @@ import seaborn as sns
 from matplotlib.axes import Axes
 from matplotlib.colors import ListedColormap
 from matplotlib.transforms import Bbox
+from tqdm.notebook import tqdm
+from wordcloud import WordCloud
 
 from ..config import _ALPHA
 from ..config import _GGPLOT_COLORS as colors
 from ..config import _NODE_SIZE
 from ..utils import scale
-
-from ._community import stopwords
 from ._auxiliary_data import load_gene_func_db
-
-from wordcloud import WordCloud
-from tqdm.notebook import tqdm
-
-from typing import Dict, Tuple
-from itertools import chain  # for aggregate functions
+from ._community import stopwords
 
 
 def plot_avail_cell_types(meta: pd.DataFrame, save_as: str = None):
@@ -528,10 +526,10 @@ def plot_cloud(
     anno_db: str, 
     display_func: bool = False, 
     filter_genes: bool = True, 
-    limit_anno_until: int = 50, 
     if_betweenness: bool = True, 
+    limit_anno_until: int = 50, 
     k: int = 3000,
-): 
+) -> Axes: 
     """
     Plot word clouds depicting communities in the graph. Communities will be laid out on the 
     periphery, with each node being a gene. Either gene list or gene function will be displayed on
@@ -551,9 +549,9 @@ def plot_cloud(
     :param display_func: True if display the gene functions in the word cloud, False if display gene
         names
     :param filter_genes: True if use only top `limit_anno_until` important genes (based on centrality)
-    :param limit_anno_until: Number of genes to use to calculate wordcloud
     :param if_betweenness: True if use betweenness centrality as node importance score, False if use
         closeness centrality
+    :param limit_anno_until: Number of genes to use to calculate wordcloud
     :param k: Use k nodes to estimate centrality
 
     :returns: The axis with the plotted communities as word clouds

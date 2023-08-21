@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from community import community_louvain
+from joblib import Parallel, delayed
 from matplotlib.colors import ListedColormap
 from termcolor import colored  # colored text output
 from tqdm import tqdm as tqdm_cli
@@ -300,16 +301,93 @@ def squeeze_graph(
     return squeezed_G, squeezed_partition
 
            
-def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_betweenness=True, 
-                        limit_anno_until=50, k=5000, save_top_intercommunity_links_until=20, 
-                        other_functions_until=20, save_top_new_found_cluster_links=20, seed=42):
+def process_communities(
+    cell_type: str, 
+    net_type: str,
+    pat: Union[str, None] = None, 
+    algo: str = 'leiden', 
+    filter_quantile: float = 0.95, 
+    if_betweenness: bool = True, 
+    limit_anno_until: int = 50, 
+    k: int = 5000, 
+    save_top_intercommunity_links_until: int = 20, 
+    other_functions_until: int = 20, 
+    save_top_new_found_cluster_links: int = 20, 
+    seed: int = 42
+):
     """
-    Process graph by finding its communities, annotate its communities, and save everything into .tsv format.
-    """
+    Find communities in the passed graph, annotate them by identifying general community properties 
+    such as number of nodes/edges, as well as biology-related properties, e.g. top important genes 
+    and functions. At the end we save metadata to .tsv format along with word clouds in the figs 
+    folder.
+
+    The output has the following format:
+
+    num_nodes	num_edges	main_functions_GO	                                main_functions_KEGG	                                main_functions_immunological	                    main_functions_hallmark	                            non_lambert_2018_TF_central_genes	                non_dorothea_TF_central_genes	                    new_gene_gene_links_KEGG	                        new_gene_gene_links_hallmark	                    ...	top_links_scores_with_community_6	                top_links_scores_with_community_7	                top_links_scores_with_community_8	                top_links_scores_with_community_9	                top_links_scores_with_community_10	                top_links_scores_with_community_11	                top_links_scores_with_community_12	                top_links_scores_with_community_13	                top_links_scores_with_community_14	                top_links_scores_with_community_15
+0	3978	    12830	    >>> phosphatase activity <<<: PTPRK,DUSP14,PTE...	>>> MAPK signaling pathway <<<: JUN,ELK1,GADD4...	>>> Genes down-regulated in effector CD8 T cel...	>>> Genes regulated by NF-kB in response to TN...	DUSP1 (rank=1); IL7R (rank=3); MTRNR2L12 (rank...	DUSP1 (rank=1); KLF2 (rank=2); IL7R (rank=3); ...	IL7R (KEGG_HEMATOPOIETIC_CELL_LINEAGE & KEGG_J...	TXNIP (HALLMARK_APOPTOSIS & HALLMARK_P53_PATHW...	...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...	IL7R <-> PTGER2 (score=36.18); TXNIP <-> IL7R ...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...	DUSP1 <-> JUN (score=33.34); IL7R <-> PTGER2 (...
+1	1812	    11803	    >>> regulation of microtubule polymerization o...	>>> MAPK signaling pathway <<<: MEF2C,STMN1,MA...	>>> Genes down-regulated in naïve CD8 T cells ...	>>> Genes involved in the G2/M checkpoint, as ...	STMN1 (rank=1); TYMS (rank=2); HMGB2 (rank=3);...	STMN1 (rank=1); TYMS (rank=2); HMGB2 (rank=3);...	STMN1 (KEGG_MAPK_SIGNALING_PATHWAY) <-> HMGN2 ...	HMGN2 (HALLMARK_G2M_CHECKPOINT) <-> H2AFV (); ...	...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...	STMN1 <-> HMGN2 (score=31.23); TYMS <-> PCNA (...
+2	1576	    6114	    >>> immune response <<<: CCL5,IGKV1-12,CST7,IG...	>>> Cytokine-cytokine receptor interaction <<<...	>>> Genes down-regulated in naïve CD8 T cells ...	>>> Genes regulated by NF-kB in response to TN...	CCL5 (rank=1); NKG7 (rank=2); LAG3 (rank=3); S...	CCL5 (rank=1); NKG7 (rank=2); LAG3 (rank=3); S...	NKG7 () <-> GZMA (KEGG_NEUROACTIVE_LIGAND_RECE...	NKG7 () <-> GZMA (HALLMARK_ALLOGRAFT_REJECTION...	...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...	NKG7 <-> GZMA (score=41.34); NKG7 <-> CST7 (sc...
+3	1494	    11988	    >>> nucleic acid binding <<<: TRIM27,PARN,SON,...	>>> RIG-I-like receptor signaling pathway <<<:...	>>> Genes up-regulated in naïve CD8 T cells co...	>>> Genes up-regulated in response to low oxyg...	ISG20 (rank=1); MX1 (rank=2); ISG15 (rank=3); ...	ISG20 (rank=1); MX1 (rank=2); ISG15 (rank=3); ...	B2M (KEGG_ANTIGEN_PROCESSING_AND_PRESENTATION)...	MYL12A (HALLMARK_ANDROGEN_RESPONSE) <-> MYL12B...	...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...	B2M <-> LY6E (score=51.16); LY6E <-> IFITM1 (s...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...	B2M <-> LY6E (score=51.16); MYL12A <-> MYL12B ...
+4	1481    	21413	    >>> nucleotide binding <<<: AK6,DDX52,ABCF1,DD...	>>> Pathogenic Escherichia coli infection <<<:...	>>> Genes down-regulated in naïve CD8 T cells ...	>>> Genes encoding components of apical juncti...	ACTB (rank=1); GAPDH (rank=2); ACTG1 (rank=3);...	ACTB (rank=1); GAPDH (rank=2); ACTG1 (rank=3);...	GAPDH (KEGG_GLYCOLYSIS_GLUCONEOGENESIS & KEGG_...	GAPDH (HALLMARK_MTORC1_SIGNALING & HALLMARK_HY...	...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...	GAPDH <-> ACTB (score=62.04); PFN1 <-> MYL6 (s...
     
-    from joblib import Parallel, delayed
+    The following columns are generated:
+
+    'num_nodes' -> number of nodes in the community
+    'num_edges' -> number of edges in the community
+    'main_functions_GO' -> main functions based on GO annotation, the following formatting used >>> func_term <<<: gene_1, gene_2, ..., gene_N; >>> func_term <<<: ...
+    'main_functions_KEGG' -> same as 'main_functions_GO' but based on KEGG annotation
+    'main_functions_immunological' -> same as 'main_functions_GO' but based on MSigDB_immunological annotation
+    'main_functions_hallmark' -> same as 'main_functions_GO' but based on MSigDB_hallmark annotation
+    'non_lambert_2018_TF_central_genes' -> genes with highest centrality not included in TF Lambert et al, 2018 list, i.e. potential non-TF regulators
+    'non_dorothea_TF_central_genes' -> genes with highest centrality not included in TF DoRothEA list, i.e. potential non-TF regulators
+    'new_gene_gene_links_KEGG' -> inter-functional connections between genes (if genes are connected, but no common functional terms are found)
+    'new_gene_gene_links_hallmark' -> inter-functional connections between genes (if genes are connected, but no common functional terms are found)
+    'whole_G_central_genes_scores' -> centrality score for each gene computed on the whole graph, i.e. what's the most central gene in the whole network?
+    'other_functions_GO' -> other functions identifed based on non-central genes (based on GO)
+    'other_functions_KEGG' -> other functions identifed based on non-central genes (based on KEGG)
+    'other_functions_immunological' -> other functions identifed based on non-central genes (based on MSigDB_immunological)
+    'other_functions_hallmark' ->  other functions identifed based on non-central genes (based on MSigDB_hallmark)
+    'sorted_central_genes_scores' -> top central genes with scores (sorted)
+    'sorted_central_functions_GO' -> similar to 'main_functions_GO', but here grouping by gene instead of grouping by function
+    'sorted_central_functions_KEGG' -> similar to 'main_functions_KEGG', but here grouping by gene instead of grouping by function
+    'sorted_central_functions_immunological' -> similar to 'main_functions_immunological', but here grouping by gene instead of grouping by function
+    'sorted_central_functions_hallmark' -> similar to 'main_functions_hallmark', but here grouping by gene instead of grouping by function
+    'most_frequent_function_words_GO' -> most frequent functional terms, visualized on the word cloud (based on GO)
+    'most_frequent_function_words_KEGG' -> most frequent functional terms, visualized on the word cloud (based on KEGG)
+    'most_frequent_function_words_immunological' -> most frequent functional terms, visualized on the word cloud (based on MSigDB_immunological)
+    'most_frequent_function_words_hallmark' -> most frequent functional terms, visualized on the word cloud (based on MSigDB_hallmark)
+    'all_sorted_genes' -> all genes with corresponding centrality scores (fuller list than 'sorted_central_genes_scores')
+    'top_links_scores_central_genes<->community_i' -> gene-gene links with highest importance between the current community and community_i (only central genes)
+    'top_links_scores_with_community_0' -> similar to top_links_scores_central_genes.* but any gene is considered here
+
+    :param cell_type: The cell type name of the data - could be either:
+        e.g. 'Macrophage', 'T_cells' (the cell type identifier)
+        e.g. 'all', 'all_data' (the aggregated data - include all cell types)
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 'raw_data_T_cells'
+            corresponds to the same data as 'T_cells')
+    :param net_type: The type of data - could be either:
+        'all' (all gene-gene connections)
+        'TF' (TF-target connections)
+        'ctx' (enriched TF-target connections)
+    :param pat: The patient identifier - could be either:
+        e.g. None (include all patients)
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+    :param algo: The algorithm used to identify communities, either 'leiden' or 'louvain'
+    :param filter_quantile: The quantile threshold
+    :param if_betweenness: True if use betweenness centrality as node importance score, False if use
+        closeness centrality
+    :param limit_anno_until: Number of genes to use to calculate wordcloud
+    :param k: Use k nodes to estimate centrality
+    :param save_top_intercommunity_links_until: The number of inter-community links to save with highest importance
+    :param other_functions_until: Number of other functional terms to save (not included in the main ones)
+    :param save_top_new_found_cluster_links: Number of inter-functional connections between genes to save
+    :param seed: A random seed
+    """
     
     def highlight_TFs(word, font_size, position, orientation, font_path, random_state):
+        """Highlight the transcription factors on the word cloud."""
+
         TF_color = (255, 0, 0)  # red
         if word in lambert_TF_names or word in dorothea_TF_names:
             return TF_color
@@ -375,7 +453,7 @@ def process_communities(data, pat=None, algo='leiden', filter_quantile=0.95, if_
     )
     
     # Loading the graph
-    G = get_nx_graph(data=data, data_type='all', pat=pat, get_filtered=filter_quantile)
+    G = get_nx_graph(data=cell_type, net_type='all', pat=pat, filtered=filter_quantile)
     print(f"Loaded the graph: {colored('pat', 'green')}='{colored(pat, 'red')}', "
           f"{colored('data', 'green')}='{colored(data, 'red')}', "
           f"{colored('data_type', 'green')}='{colored('all', 'red')}'\n")
