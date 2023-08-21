@@ -24,6 +24,14 @@ ALGO=$3  # either `leiden` or `louvain`
 RUN_TYPE=$4  # e.g. "GREASY"|"SBATCH" - used to separate logs for different types of computation
 TASK_NUM=$5  # e.g. 1 - just number of the tasks (useful to label when searching in logs)
 
+# ----------------------------- #
+#### USER-SPECIFIED CONFIGS #####
+
+PROJ_HOME="/gpfs/projects/bsc08/shared_projects/scGRN_analysis"
+
+#################################
+# ----------------------------- #
+
 # Adding task number label to the logs
 if [ ! -z "$TASK_NUM" ]
 then
@@ -33,9 +41,9 @@ fi
 # Defining directory of logs
 if [ "$RUN_TYPE" == "GREASY" ]
 then
-    LOG_OUTPUT="/gpfs/projects/bsc08/bsc08890/sbatch/greasy/logs"
+    LOG_OUTPUT="${PROJ_HOME}/sbatch/greasy/logs"
 else
-    LOG_OUTPUT="/gpfs/projects/bsc08/bsc08890/sbatch/logs"
+    LOG_OUTPUT="${PROJ_HOME}/sbatch/logs"
 fi
 
 LOG_OUT=${LOG_OUTPUT}/${PATIENT}${TASK_NUM}_${CELL_TYPE}_COMMUNITY_ANA_${ALGO}_${SLURM_JOBID}.out
@@ -50,6 +58,6 @@ printf "Performing community analysis ${PATIENT} (${CELL_TYPE}) data with ${ALGO
 printf "" > $LOG_ERR
 
 # Running community analysis based on input parameters
-python /gpfs/home/bsc08/bsc08890/src/community_ana.py -p $PATIENT -c $CELL_TYPE -a $ALGO 2> $LOG_ERR 1> $LOG_OUT && \
+python ../community_ana.py -p $PATIENT -c $CELL_TYPE -a $ALGO 2> $LOG_ERR 1> $LOG_OUT && \
 printf "Finished with community analysis..\n\n" >> $LOG_OUT || \
 printf "Failed community analysis..\n\n" >> $LOG_OUT
