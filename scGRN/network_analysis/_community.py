@@ -36,6 +36,16 @@ stopwords = STOPWORDS.union({
     'binding', 'response', 'gene', 'genes', 'encoding', 'defining', 'GeneID', 'regulated',
 })
 
+from ..config import _DATA_HOME, _PROJ_HOME, _META_FILE
+from ._data_processing import get_nx_graph
+from ._auxiliary_data import load_gene_func_db
+from ._plotting import get_elipsis_mask
+
+from typing import Union
+
+from multiprocessing import Pool
+import itertools
+
 
 def netgraph_community_layout(
     G: nx.DiGraph, 
@@ -300,10 +310,55 @@ def squeeze_graph(
     
     return squeezed_G, squeezed_partition
 
+
+def betweenness_centrality_parallel(
+    G: nx.DiGraph,
+    processes: Union[int, None] = None
+) -> Dict[str, int]:
+    """
+    Compute betweenness centrality function in parallel for large graphs. Courtesy of:
+
+    https://networkx.org/documentation/stable/auto_examples/algorithms/plot_parallel_betweenness.html
+
+    :param G: NetworkX graph
+    :param processes: The number of processes to use
+    
+    """
+    
+    def chunks(l, n):
+        """Divide a list of nodes `l` in `n` chunks"""
+        l_c = iter(l)
+        while 1:
+            x = tuple(itertools.islice(l_c, n))
+            if not x:
+                return
+            yield x
+    
+    p = Pool(processes=processes)
+    node_divisor = len(p._pool) * 4
+    node_chunks = list(chunks(G.nodes(), int(G.order() / node_divisor)))
+    num_chunks = len(node_chunks)
+    bt_sc = p.starmap(
+        nx.betweenness_centrality_subset,
+        zip(
+            [G] * num_chunks,
+            node_chunks,
+            [list(G)] * num_chunks,
+            [True] * num_chunks,
+            ['distance'] * num_chunks
+        ),
+    )
+
+    # Reduce the partial solutions
+    bt_c = bt_sc[0]
+    for bt in bt_sc[1:]:
+        for n in bt:
+            bt_c[n] += bt[n]
+    return bt_c
+
            
 def process_communities(
     cell_type: str, 
-    net_type: str,
     pat: Union[str, None] = None, 
     algo: str = 'leiden', 
     filter_quantile: float = 0.95, 
@@ -385,7 +440,7 @@ def process_communities(
     :param seed: A random seed
     """
     
-    def highlight_TFs(word, font_size, position, orientation, font_path, random_state):
+    def _highlight_TFs(word, font_size, position, orientation, font_path, random_state):
         """Highlight the transcription factors on the word cloud."""
 
         TF_color = (255, 0, 0)  # red
@@ -394,242 +449,10 @@ def process_communities(
         else:
             r, g, b, alpha = plt.get_cmap('viridis')(font_size / 120)
             return (int(r * 255), int(g * 255), int(b * 255))
-    
-    print('\nPerforming community analysis..\n\n')
-    
-    # Setting pathways to files
-    _PROJ_PATH = '/gpfs/projects/bsc08/bsc08890'
-    _FMETA = os.path.join(_PROJ_PATH, 'data/GSE145926_RAW/metadata.tsv')
-    _DATA_HOME = os.path.join(_PROJ_PATH, 'res/covid_19')
-
-    # Loading sample meta data, reordering patients
-    full_meta = pd.read_csv(_FMETA, sep='\t', index_col=0)
-    
-    # Prepare everything to save the figs and dataframe
-    if data == 'all_data':
-        data = 'raw_data'
-    elif 'raw_data_' not in data:
-        data = f'raw_data_{data}'
-    else:
-        pass
-    
-    if pat is None or pat == 'all_data':
         
-        # Cell-type aggregated data
-        data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
-        
-        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', f'raw_data')
-        
-        data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
-        data_as = os.path.join(data_to, f'raw_data_communities_info.pickle')
-        
-    elif pat in ['C', 'M', 'S']:
-        
-        # Patient-type aggregated data
-        data_folder = 'all_data' if data == 'raw_data' else data.replace('raw_data_', '')
-        
-        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', 
-                               f'raw_data_{pat}_type')
-        
-        data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
-        data_as = os.path.join(data_to, f'raw_data_{pat}_type_communities_info.pickle')
-        
-    else:
-        
-        # Loading patient-specific data
-        figs_as = os.path.join(_DATA_HOME, pat, 'figs', 'grnboost2', f'{data}')
-        
-        data_to = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{algo}_communities')
-        data_as = os.path.join(data_to, f'{data}_communities_info.pickle')
-    
-    os.makedirs(data_to, exist_ok=True)
-    os.makedirs(os.path.dirname(figs_as), exist_ok=True)
-    
-    # Loading lists of TFs from Lambert 2018 and DoRothEA, in the latter case we will keep only confident regulons
-    lambert_TF_names = pd.read_csv(os.path.join(_PROJ_PATH, 'data/TF_lists/lambert2018.txt'), header=None)[0].to_list()
-    dorothea_TF_names = list(
-        pd.read_csv(os.path.join(_PROJ_PATH, 'data/TF_lists/dorothea_regulons.tsv'), sep='\t') \
-            .loc[lambda x: x['confidence'].isin(['A', 'B', 'C'])]['tf'].unique()
-    )
-    
-    # Loading the graph
-    G = get_nx_graph(data=cell_type, net_type='all', pat=pat, filtered=filter_quantile)
-    print(f"Loaded the graph: {colored('pat', 'green')}='{colored(pat, 'red')}', "
-          f"{colored('data', 'green')}='{colored(data, 'red')}', "
-          f"{colored('data_type', 'green')}='{colored('all', 'red')}'\n")
-    
-    
-    ###### FINDING COMMUNITIES IN THE GRAPH #######
-    
-    print('Finding communities in the graph..')
-    
-    if algo == 'louvain':
-        partition = community_louvain.best_partition(G.to_undirected(), weight='importance', random_state=seed)
-    elif algo == 'leiden':
-        G_igraph = ig.Graph.from_networkx(G.to_undirected())
-        la_partition = la.find_partition(G_igraph, la.ModularityVertexPartition, weights='importance', seed=seed)
-        partition = {G_igraph.vs[node]['_nx_name']: i for i, cluster_nodes in enumerate(la_partition) for node in cluster_nodes}
-    else:
-        raise NotImplementedError
-        
-    num_partitions = len(set(partition.values()))
-    print(f'Number of partitions using {algo} algorithm: {colored(num_partitions, "cyan")}\n')
-    
-    
-    ###### FINDING HIGH-CENTRALITY GENES IN THE WHOLE GRAPH
-    
-    print('Finding high-centrality genes in the whole graph..')
-    
-    num_workers = max(multiprocessing.cpu_count() // 2, 1)
-    whole_G_central_genes = dict(
-        sorted(betweenness_centrality_parallel(G, processes=num_workers).items(), key=lambda x: x[1], reverse=True)[:limit_anno_until]
-    )
-    print(f'Computed the {"betweenness" if if_betweenness else "closeness"} centrality for all genes in the graph\n')
-    
-    ###### FINDING HIGH-CENTRALITY GENES AND CORRESPONDING FUNCTIONS IN EACH COMMUNITY USING GO ANNOTATION ######
-    
-    print('Finding high-centrality genes/functions in each cluster..')
-    
-    # Loading the gene functional annotation
-    anno_db_tags = ['GO', 'KEGG', 'immunological', 'hallmark']
-    gene_func_dbs = {tag: load_gene_func_db(tag, as_series=True) for tag in anno_db_tags}
-    
-    # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
-    partition_genes_ = {}
-    for gene, i in partition.items():
-        if i not in partition_genes_.keys():
-            partition_genes_[i] = [gene]
-        else:
-            partition_genes_[i] += [gene]
-
-    # Whether to filter the genes on which we compute the word cloud (most important genes)
-    compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
-    distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
-    all_partition_genes = {}
-    norm_partition_genes = {}
-    t = tqdm_cli(partition_genes_.items(), ascii=True)
-    for i, genes in t:
-        t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
-        gene_scores = dict(
-            sorted(
-                compute_centrality(
-                    G.subgraph(genes), k=min(G.subgraph(genes).order(), k), normalized=True, **distance_metric
-                ).items(), 
-                key=lambda x: x[1], reverse=True
-            )
-        )
-        all_partition_genes[i] = gene_scores
-        central_gene_scores = {gene: gene_scores[gene] for k, gene in enumerate(gene_scores.keys()) if k < limit_anno_until}
-        
-        # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
-        # displaying wordclouds (higher score - higher "frequency" or word size)
-        norm_partition_genes[i] = dict(
-            zip(
-                central_gene_scores.keys(), 
-                list(map(lambda x: int(x), scale(list(central_gene_scores.values()), 1, 100)))
-            )
-        )
-    print('Computed centrality scores for each gene in each community\n')
-    
-    print('Finding functional annotations for each cluster..')
-    
-    # Computing functional annotation for each cluster as a concatenated list of annotations
-    # Each annotation is weighted by its duplication gene_score times (e.g. a gene has score = 2 -> 
-    # the functional annotation is duplicated and have bigger font in WordCloud)
-    # We also do it for different functional annotations like GO, KEGG, Hallmark, etc..
-    partition_funcs = {
-        tag: 
-            {
-                i: ' '.join(
-                    chain.from_iterable([
-                       gene_func[gene_func.index == gene].to_list()*gene_score 
-                            for gene, gene_score in gene_score_list.items()
-                ])) for i, gene_score_list in norm_partition_genes.items()
-            } for tag, gene_func in gene_func_dbs.items()
-    }
-    
-    print('Computed functional annotations for each cluster\n')
-
-    
-    ###### PLOTTING GENE AND FUNC COMMUNITY CLOUDS ######
-    
-    print('Plotting clusters..')
-    
-    # Getting positions of squeezed graph - we do not plot every gene on the figure
-    squeezed_G, squeezed_partition = squeeze_graph(G, partition)
-    print('Computed a squeezed graph representation..')
-    
-    squeezed_pos = netgraph_community_layout(squeezed_G, squeezed_partition, seed=seed)  # nx.nx_agraph.pygraphviz_layout(G.to_undirected(), prog="sfdp")  # nx.nx.spring_layout(G, seed=seed, k=0.2, iterations=20)
-    partition_coords = {}
-    for gene, coords in squeezed_pos.items():
-        if partition[gene] not in partition_coords:
-            partition_coords[partition[gene]] = [coords]
-        else:
-            partition_coords[partition[gene]] += [coords]
-    print('Computed node positions of the squeezed graph representation..')
-    
-    cmap = ListedColormap(sns.color_palette(cc.glasbey_bw, n_colors=num_partitions).as_hex())
-    
-    for plot_type in ['genes'] + list(map(lambda x: f"func_{x}", anno_db_tags)):
-    
-        if plot_type.startswith('func'):
-            # Getting current functional annotation
-            curr_partition_funcs = partition_funcs[plot_type[plot_type.find('_') + 1:]]
-        
-        f, ax = plt.subplots(figsize=(20, 35))
-        
-        if plot_type == 'genes':
-            wordclouds = {
-                i: WordCloud(
-                    max_words=30, min_font_size=15, background_color='white', mask=get_elipsis_mask()
-                ).generate_from_frequencies(gene_score_dict).recolor(color_func=highlight_TFs) 
-                    for i, gene_score_dict in norm_partition_genes.items()
-            }
-        else:
-            word_counts = {
-                i: WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in curr_partition_funcs.items()
-            }
-            word_counts = {
-                i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
-            }  # dealing with no word case
-            wordclouds = {
-                i: WordCloud(
-                    max_words=30, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
-                ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
-            }
-            
-        # Plotting clouds
-        for i, coords in partition_coords.items():
-            x, y = zip(*coords)
-            min_x, max_x = min(x), max(x)
-            min_y, max_y = min(y), max(y)
-            ax.imshow(wordclouds[i], interpolation='bilinear', extent=[min_x, max_x, min_y, max_y])
-        print(f'Finished plotting {plot_type} word cloud..')
-        
-        nx.draw(squeezed_G, squeezed_pos, ax=ax, arrowstyle="->", arrowsize=20, 
-                connectionstyle=f'arc3, rad = 0.25', edge_color='gray', width=0.4, 
-                node_color='k', node_size=50, alpha=0.02)
-        nx.draw_networkx_nodes(squeezed_G, squeezed_pos, ax=ax, node_size=100, 
-                               nodelist=list(squeezed_partition.keys()), 
-                               node_color=list(squeezed_partition.values()), 
-                               cmap=cmap, alpha=0.005)
-        print(f'Finished plotting {plot_type} nodes..')
-
-        ax.set_title(f'Found communities ({pat}, "all", {data}), '
-                     f'annotation - {plot_type}', 
-                     fontsize=30)
-        plt.axis('off')
-
-        plt.savefig(f'{figs_as}_{plot_type}.png', bbox_inches='tight', dpi=400)
-            
-    print('Finished plotting..\n')
-            
-    
-    ###### SAVING DATAFRAME CONTAINING INFORMATION ABOUT EACH COMMUNITY ######
-
-    def compute_community_info(i):
+    def _compute_community_info(i):
         """
-        Parallel saving of the dataframe.
+        Calculate the metadata about each community i in parallel.
         """
 
         # Getting information for each community
@@ -802,12 +625,253 @@ def process_communities(
 
         return communities_i
     
+
+    ###### PREPARING EVERYTHING FOR THE COMPUTATION #######
+
+    print('\nPerforming community analysis..\n\n')
+
+    # Loading sample meta data, reordering patients
+    full_meta = pd.read_csv(_META_FILE, sep='\t', index_col=0)
+    
+    # Prepare everything to save the figs and metadata   
+    if pat is None or pat == 'all_data' or pat == 'all':
+        
+        # Cell-type aggregated data
+        data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
+        
+        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', f'raw_data')
+        data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
+        data_as = os.path.join(data_to, f'raw_data_communities_info.pickle')
+        
+    elif pat in ['C', 'M', 'S']:
+        
+        # Patient-type aggregated data
+        data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
+        
+        figs_as = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'figs', 'grnboost2', 
+                               f'raw_data_{pat}_type')
+        
+        data_to = os.path.join(_DATA_HOME, 'cell_types', data_folder, 'data', 'grnboost2', f'{algo}_communities')
+        data_as = os.path.join(data_to, f'raw_data_{pat}_type_communities_info.pickle')
+        
+    else:
+
+        # Include all cell types
+        if cell_type == 'all_data' or cell_type == 'raw_data' or cell_type == 'all':
+            tag = 'raw_data'
+        # Specific cell type
+        else:
+            # Formatting input params for accessing the correct file
+            if 'raw_data_' not in cell_type:
+                tag = f'raw_data_{cell_type}'
+            else:
+                tag = cell_type
+        
+        # Loading patient-specific data
+        figs_as = os.path.join(_DATA_HOME, pat, 'figs', 'grnboost2', f'{tag}')
+        
+        data_to = os.path.join(_DATA_HOME, pat, 'data', 'grnboost2', f'{algo}_communities')
+        data_as = os.path.join(data_to, f'{tag}_communities_info.pickle')
+    
+    os.makedirs(data_to, exist_ok=True)
+    os.makedirs(os.path.dirname(figs_as), exist_ok=True)
+
+    _TF_LIST_lambert = f'{_PROJ_HOME}/Data_home/data/TF_lists/lambert2018.txt'
+    _TF_LIST_dorothea = f'{_PROJ_HOME}/Data_home/data/TF_lists/dorothea_regulons.tsv'
+    
+    # Loading lists of TFs from Lambert 2018 and DoRothEA, in the latter case we will keep only confident regulons
+    lambert_TF_names = pd.read_csv(_TF_LIST_lambert, header=None)[0].to_list()
+    dorothea_TF_names = list(
+        pd.read_csv(_TF_LIST_dorothea, sep='\t') \
+            .loc[lambda x: x['confidence'].isin(['A', 'B', 'C'])]['tf'].unique()
+    )
+    
+    # Loading the graph
+    G = get_nx_graph(cell_type=cell_type, net_type='all', pat=pat, filtered=filter_quantile)
+    print(f"Loaded the graph: {colored('pat', 'green')}='{colored(pat, 'red')}', "
+          f"{colored('cell_type', 'green')}='{colored(cell_type, 'red')}', "
+          f"{colored('net_type', 'green')}='{colored('all', 'red')}'\n")
+    
+    
+    ###### FINDING COMMUNITIES IN THE GRAPH #######
+    
+    print('Finding communities in the graph..')
+    
+    if algo == 'louvain':
+        partition = community_louvain.best_partition(G.to_undirected(), weight='importance', random_state=seed)
+    elif algo == 'leiden':
+        G_igraph = ig.Graph.from_networkx(G.to_undirected())
+        la_partition = la.find_partition(G_igraph, la.ModularityVertexPartition, weights='importance', seed=seed)
+        partition = {G_igraph.vs[node]['_nx_name']: i for i, cluster_nodes in enumerate(la_partition) for node in cluster_nodes}
+    else:
+        raise NotImplementedError
+        
+    num_partitions = len(set(partition.values()))
+    print(f'Number of partitions using {algo} algorithm: {colored(num_partitions, "cyan")}\n')
+    
+    
+    ###### FINDING HIGH-CENTRALITY GENES IN THE WHOLE GRAPH
+    
+    print('Finding high-centrality genes in the whole graph..')
+    
+    num_workers = max(multiprocessing.cpu_count() // 2, 1)
+    whole_G_central_genes = dict(
+        sorted(betweenness_centrality_parallel(G, processes=num_workers).items(), key=lambda x: x[1], reverse=True)[:limit_anno_until]
+    )
+    print(f'Computed the {"betweenness" if if_betweenness else "closeness"} centrality for all genes in the graph\n')
+    
+
+    ###### FINDING HIGH-CENTRALITY GENES AND CORRESPONDING FUNCTIONS IN EACH COMMUNITY USING GO ANNOTATION ######
+    
+    print('Finding high-centrality genes/functions in each cluster..')
+    
+    # Loading the gene functional annotation
+    anno_db_tags = ['GO', 'KEGG', 'immunological', 'hallmark']
+    gene_func_dbs = {tag: load_gene_func_db(tag, as_series=True) for tag in anno_db_tags}
+    
+    # Reversing partition dict -> {group_1: [gene_1, gene_2, ...], group_2: [gene_3, gene_4, ...], ...}
+    partition_genes_ = {}
+    for gene, i in partition.items():
+        if i not in partition_genes_.keys():
+            partition_genes_[i] = [gene]
+        else:
+            partition_genes_[i] += [gene]
+
+    # Whether to filter the genes on which we compute the word cloud (most important genes)
+    compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
+    distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+    all_partition_genes = {}
+    norm_partition_genes = {}
+    t = tqdm_cli(partition_genes_.items(), ascii=True)
+    for i, genes in t:
+        t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
+        gene_scores = dict(
+            sorted(
+                compute_centrality(
+                    G.subgraph(genes), k=min(G.subgraph(genes).order(), k), normalized=True, **distance_metric
+                ).items(), 
+                key=lambda x: x[1], reverse=True
+            )
+        )
+        all_partition_genes[i] = gene_scores
+        central_gene_scores = {gene: gene_scores[gene] for k, gene in enumerate(gene_scores.keys()) if k < limit_anno_until}
+        
+        # Renormalizing centrality scores between 1 and 100, and rounding them to use later when 
+        # displaying wordclouds (higher score - higher "frequency" or word size)
+        norm_partition_genes[i] = dict(
+            zip(
+                central_gene_scores.keys(), 
+                list(map(lambda x: int(x), scale(list(central_gene_scores.values()), 1, 100)))
+            )
+        )
+    print('Computed centrality scores for each gene in each community\n')
+
+
+    ###### COMPUTING FUNCTIONAL TERMS FOR EACH PARTITION (COMMUNITY) ######
+    
+    print('Finding functional annotations for each cluster..')
+    
+    # Computing functional annotation for each cluster as a concatenated list of annotations
+    # Each annotation is weighted by its duplication gene_score times (e.g. a gene has score = 2 -> 
+    # the functional annotation is duplicated and have bigger font in WordCloud)
+    # We also do it for different functional annotations like GO, KEGG, Hallmark, etc..
+    partition_funcs = {
+        tag: 
+            {
+                i: ' '.join(
+                    chain.from_iterable([
+                       gene_func[gene_func.index == gene].to_list()*gene_score 
+                            for gene, gene_score in gene_score_list.items()
+                ])) for i, gene_score_list in norm_partition_genes.items()
+            } for tag, gene_func in gene_func_dbs.items()
+    }
+    
+    print('Computed functional annotations for each cluster\n')
+
+    
+    ###### PLOTTING GENE AND FUNC COMMUNITY CLOUDS ######
+    
+    print('Plotting clusters..')
+    
+    # Getting positions of squeezed graph - we do not plot every gene on the figure
+    squeezed_G, squeezed_partition = squeeze_graph(G, partition)
+    print('Computed a squeezed graph representation..')
+    
+    squeezed_pos = netgraph_community_layout(squeezed_G, squeezed_partition, seed=seed)  # nx.nx_agraph.pygraphviz_layout(G.to_undirected(), prog="sfdp")  # nx.nx.spring_layout(G, seed=seed, k=0.2, iterations=20)
+    partition_coords = {}
+    for gene, coords in squeezed_pos.items():
+        if partition[gene] not in partition_coords:
+            partition_coords[partition[gene]] = [coords]
+        else:
+            partition_coords[partition[gene]] += [coords]
+    print('Computed node positions of the squeezed graph representation..')
+    
+    cmap = ListedColormap(sns.color_palette(cc.glasbey_bw, n_colors=num_partitions).as_hex())
+    
+    for plot_type in ['genes'] + list(map(lambda x: f"func_{x}", anno_db_tags)):
+    
+        if plot_type.startswith('func'):
+            # Getting current functional annotation
+            curr_partition_funcs = partition_funcs[plot_type[plot_type.find('_') + 1:]]
+        
+        f, ax = plt.subplots(figsize=(20, 35))
+        
+        if plot_type == 'genes':
+            wordclouds = {
+                i: WordCloud(
+                    max_words=30, min_font_size=15, background_color='white', mask=get_elipsis_mask()
+                ).generate_from_frequencies(gene_score_dict).recolor(color_func=_highlight_TFs) 
+                    for i, gene_score_dict in norm_partition_genes.items()
+            }
+        else:
+            word_counts = {
+                i: WordCloud(max_words=30, min_font_size=15, stopwords=stopwords).process_text(text) for i, text in curr_partition_funcs.items()
+            }
+            word_counts = {
+                i: (freqs if freqs else {'no found function': 1}) for i, freqs in word_counts.items()
+            }  # dealing with no word case
+            wordclouds = {
+                i: WordCloud(
+                    max_words=30, min_font_size=15, stopwords=stopwords, background_color='white', mask=get_elipsis_mask()
+                ).generate_from_frequencies(freqs) for i, freqs in word_counts.items()
+            }
+            
+        # Plotting clouds
+        for i, coords in partition_coords.items():
+            x, y = zip(*coords)
+            min_x, max_x = min(x), max(x)
+            min_y, max_y = min(y), max(y)
+            ax.imshow(wordclouds[i], interpolation='bilinear', extent=[min_x, max_x, min_y, max_y])
+        
+        print(f'Finished plotting {plot_type} word cloud..')
+        
+        nx.draw(squeezed_G, squeezed_pos, ax=ax, arrowstyle="->", arrowsize=20, 
+                connectionstyle='arc3, rad = 0.25', edge_color='gray', width=0.4, 
+                node_color='k', node_size=50, alpha=0.02)
+        nx.draw_networkx_nodes(squeezed_G, squeezed_pos, ax=ax, node_size=100, 
+                               nodelist=list(squeezed_partition.keys()), 
+                               node_color=list(squeezed_partition.values()), 
+                               cmap=cmap, alpha=0.005)
+        print(f'Finished plotting {plot_type} nodes..')
+
+        ax.set_title(f'Found communities ({pat}, "all", {cell_type}), '
+                     f'annotation - {plot_type}', 
+                     fontsize=30)
+        plt.axis('off')
+
+        plt.savefig(f'{figs_as}_{plot_type}.png', bbox_inches='tight', dpi=400)
+            
+    print('Finished plotting..\n')
+            
+    
+    ###### SAVING DATAFRAME CONTAINING INFORMATION ABOUT EACH COMMUNITY ######
+    
     print('Saving info dataframe..')
     
     t = tqdm_cli(range(num_partitions), ascii=True)
     
     # Getting dataframe
-    result = Parallel(n_jobs=num_workers)(delayed(compute_community_info)(i) for i in t)
+    result = Parallel(n_jobs=num_workers)(delayed(_compute_community_info)(i) for i in t)
     communities_df = pd.concat(result, axis=1).T.reindex(
         columns=[
             'num_nodes', 'num_edges',
