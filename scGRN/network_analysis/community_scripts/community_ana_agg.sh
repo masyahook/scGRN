@@ -18,9 +18,9 @@
 ############# Input params ###############
 ##########################################
 
-CELL_TYPE=$1  # e.g. "all_data" or "Macrophage" - the aggregated cell type data identifier (cell type-specific or just all data)
-PAT_TYPE=$2  # e.g. "all_patients" or ("C"|"M"|"S") - the aggregated patient type data identifier (patient type-specific or just all patients)
-ALGO=$3  # either `leiden` or `louvain`
+ALGO=$1  # either `leiden` or `louvain`
+CELL_TYPE=$2  # e.g. "all_data" or "Macrophage" - the aggregated cell type data identifier (cell type-specific or just all data)
+PAT_TYPE=$3  # e.g. "all_patients" or ("C"|"M"|"S") - the aggregated patient type data identifier (patient type-specific or just all patients)
 RUN_TYPE=$4  # e.g. "GREASY"|"SBATCH" - used to separate logs for different types of computation
 TASK_NUM=$5  # e.g. 1 - just number of the tasks (useful to label when searching in logs)
 

@@ -1,12 +1,12 @@
 #!/bin/bash
 
-############################################################
-############################################################
-#######                                              #######
-#######  Run community analysis on one patient data  #######
-#######                                              #######
-############################################################
-############################################################
+#####################################################################
+#####################################################################
+#######                                                       #######
+#######  Run community analysis on cell type aggregated data  #######
+#######                                                       #######
+#####################################################################
+#####################################################################
 
 # Loading the modules
 # module load python/3.7.4
@@ -18,9 +18,9 @@
 ############# Input params ###############
 ##########################################
 
+ALGO=$1  # either `leiden` or `louvain`
 PATIENT=$2  # e.g. C141
 CELL_TYPE=$3  # e.g. 'all_data' or 'Macrophage' - the cell type data identifier (cell type-specific or just all data)
-ALGO=$3  # either `leiden` or `louvain`
 RUN_TYPE=$4  # e.g. "GREASY"|"SBATCH" - used to separate logs for different types of computation
 TASK_NUM=$5  # e.g. 1 - just number of the tasks (useful to label when searching in logs)
 
