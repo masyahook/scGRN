@@ -26,7 +26,7 @@ from tqdm import tqdm as tqdm_cli
 from tqdm.notebook import tqdm
 from wordcloud import WordCloud
 
-from ..config import _DATA_HOME, _META_FILE, _PROJ_HOME, _STOPWORDS
+from ..config import _DATA_HOME, _PROJ_HOME, _STOPWORDS
 from ..utils import scale
 from ._auxiliary_data import load_gene_func_db
 from ._data_processing import get_nx_graph
@@ -615,9 +615,6 @@ def process_communities(
     ###### PREPARING EVERYTHING FOR THE COMPUTATION #######
 
     print('\nPerforming community analysis..\n\n')
-
-    # Loading sample meta data, reordering patients
-    full_meta = pd.read_csv(_META_FILE, sep='\t', index_col=0)
     
     # Prepare everything to save the figs and metadata   
     if pat is None or pat == 'all_data' or pat == 'all':
