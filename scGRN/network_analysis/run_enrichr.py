@@ -1,3 +1,4 @@
+"""Script to run EnrichR analysis."""
 import argparse
 import os
 
@@ -5,26 +6,22 @@ import os
 home_dir = os.path.expanduser('~')
 os.chdir(os.path.expanduser('~'))
 
-from ._enrichment import run_enrichr
+from _enrichment import run_enrichr
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Running EnrichR.')
-    parser.add_argument('-d', '--data', type=str, help='The data to compute on', required=True)
-    parser.add_argument('--is_community', help='Whether to compute community enrichments', action='store_true')
-    parser.add_argument('--is_pat_group', dest='is_community', action='store_false')
-    parser.add_argument('--on_targets', help='Whether to compute community enrichments', action='store_true')
-    parser.add_argument('--on_tfs', dest='on_targets', action='store_false')
-    parser.add_argument('--fixed_tf', type=str, help='The fixed TF to fix the analysis on while in on_targets mode', default=None)
-    parser.add_argument('-p', '--positive', type=bool, help='Whether to use positive markers only', default=True)
-    parser.add_argument('-gt', '--group_types', type=str, help='The group type to compute on: either "all", "M_C", "S_C", or "S_M"', default='all')
-    parser.add_argument('-dt', '--data_type', type=str, help='The data type to compute on: either "all" or "ctx"', default='all')
-    parser.add_argument('-n', '--n', type=int, help='The top number of community genes', default=50)
-    parser.add_argument('-l', '--lib', type=str, help='The library to use in EnrichR', default='MSigDB_Hallmark_2020')  # 'BioPlanet_2019', # 'Reactome_2016'
+    parser.add_argument('-i', '--in_path', type=str, help='The path to input data where gene sets are stored', required=True)
+    parser.add_argument('-g', '--gene_col', type=str, help='The column name that stores gene names', required=True)
+    parser.add_argument('-o', '--out_path', type=str, help='The path to output data to store', required=True)
+    parser.add_argument('-c', '--group_col', type=str, help='The column names that store group names')
+    parser.add_argument('-e', '--enrichr_library', type=str, help='The EnrichR library to use for enrichment analysis.', default='Reactome_2016')
+    parser.add_argument('-q', '--query', type=str, help='The The query that can be used to select a subset of original dataset.', default=None)
+    parser.add_argument('-n', '--top_n', type=str, help='Select top_n genes for enrichment analysis, applies for community datasets', default=50)
     args = parser.parse_args()
     
     run_enrichr(
-        args.data, is_communities=args.is_community, group_types=args.group_types,
-        on_targets=args.on_targets, is_positive_markers=args.positive, choose_fixed_tf=args.fixed_tf,
-        data_type=args.data_type, top_n=args.n, algo='leiden', enrichr_library=args.lib
+        in_path=args.in_path, gene_col=args.gene_col, out_path=args.out_path,
+        group_col=args.group_col, enrichr_library=args.enrichr_library,
+        query=args.query, top_n=args.top_n
     )

@@ -1,11 +1,12 @@
 """Enrichment analysis."""
 
 import json
-import requests
 import sys
 from io import StringIO
-
 from pathlib import Path
+
+import pandas as pd
+import requests
 
 ENRICHR_POST = 'http://amp.pharm.mssm.edu/Enrichr/addList'
 ENRICHR_GET = 'http://amp.pharm.mssm.edu/Enrichr/export'
@@ -89,7 +90,7 @@ def run_enrichr(
 
     # Creating a group -> gene list mapping
     if group_col is not None:
-        group_to_genes = df.groupby(group_col)[gene_col].agg(lambda x: x.to_list())
+        group_to_genes = in_df.groupby(group_col)[gene_col].agg(lambda x: x.to_list())
     else:
         group_col = 'group_to_col'
         group_to_genes = (
@@ -100,13 +101,15 @@ def run_enrichr(
                 ][:top_n]
                 )
             })
-            ).set_index(group_col)[gene_col]    
+            ).set_index(group_col)[gene_col] 
 
+    print(f'\nRunning EnrichR analysis on dataframe: {in_path}.\n\n')
+    print(f'Overall, detected {len(group_to_genes)} clusters: {group_to_genes.index.to_list()}\n')
 
     out_df = pd.DataFrame()
     for group, gene_list in group_to_genes.items():
         
-        print(f'Processing {group}..')
+        print(f'    Processing {group}..')
 
         # Uploading the gene set to EnrichR
         genes_str = '\n'.join(gene_list)
@@ -138,5 +141,7 @@ def run_enrichr(
 
     # Saving the results to file
     out_df.to_csv(out_path, index=False)
+
+    print(f'\nSuccess! Saved at {out_path}')
 
     return out_df
