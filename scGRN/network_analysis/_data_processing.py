@@ -761,7 +761,7 @@ def get_graph_stats(meta: pd.DataFrame, n_jobs: int, filtered: float = None) -> 
     all_out = Parallel(n_jobs=n_jobs)(
         delayed(_compute_graph_stats)(_pat, _ctype, _ntype, meta, filtered) for _ntype in n_types
         for _pat in get_avail_nx_graphs()[_ntype].index
-        for _ctype in get_avail_nx(_ntype, _pat)
+        for _ctype in get_avail_pat_nx(_ntype, _pat)
     )
     graph_stats = {
         _ntype: {
