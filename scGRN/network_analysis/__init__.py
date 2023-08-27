@@ -12,6 +12,7 @@ from ._data_processing import (
     get_nx_graph,
     get_sc_data,
     get_viper_mat,
+    get_community_info
 )
 from ._plotting import (
     draw_graph,

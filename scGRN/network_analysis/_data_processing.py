@@ -669,6 +669,96 @@ def get_nx_graph(
             )
 
 
+def get_community_info(
+    cell_type: str,
+    pat: str = None,
+    method: str = 'grnboost2',
+    algo: str = 'leiden',
+    data_home: str = _DATA_HOME,
+    tolerate_missing: bool = True
+) -> pd.DataFrame:
+    """
+    Load community summary information that is produced by running `community_ana.py`.
+
+    :param cell_type: The cell type name of the data - could be either:
+        e.g. 'Macrophage', 'T_cells' (the cell type identifier)
+        e.g. 'all', 'all_data' (the aggregated data - include all cell types)
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, e.g. 'raw_data_T_cells'
+            corresponds to the same data as 'T_cells')
+    :param net_type: The type of data - could be either:
+        'all' (all gene-gene connections)
+        'TF' (TF-target connections)
+        'ctx' (enriched TF-target connections)
+    :param pat: The patient identifier - could be either:
+        e.g. None (include all patients)
+        e.g. 'C51', 'C141' (the patient identifier)
+        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+    :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
+    :param algo: The community detection algorithm used
+    :param data_home: The filepath to the data home folder
+    :param tolerate_missing: True if tolerate missing data file (and output None in this case), False otherwise
+
+    :returns: A dataframe with all information about communities in queried graph network. The 
+        format of the dataframe could be found in `_community.py/process_communities`
+    """
+
+    # Loading data that includes all patients
+    if pat is None or pat == 'all_data' or pat == 'all':
+
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
+
+        fn = os.path.join(
+            data_home, data_folder, 'data', method, f'{algo}_communities', 
+            f'raw_data_communities_info.pickle'
+        )
+
+    # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
+    elif pat in ['C', 'M', 'S']:
+
+        # Loading patient-type aggregated data
+        data_home = os.path.join(data_home, 'cell_types')
+        data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
+
+        fn = os.path.join(
+            data_home, data_folder, 'data', method, f'{algo}_communities', 
+            f'raw_data_{pat}_type_communities_info.pickle'
+        )
+
+    # Loading patient-specific data
+    else:
+
+        # Include all cell types
+        if cell_type == 'all_data' or cell_type == 'raw_data' or cell_type == 'all':
+            tag = 'raw_data'
+        # Specific cell type
+        else:
+            # Formatting input params for accessing the correct file
+            if 'raw_data_' not in cell_type:
+                tag = f'raw_data_{cell_type}'
+            else:
+                tag = cell_type
+
+        fn = os.path.join(
+            data_home, data_folder, 'data', method, f'{algo}_communities', 
+            f'{tag}_type_communities_info.pickle'
+        )
+
+    try:
+        df = pd.read_pickle(fn)
+        return df
+    except FileNotFoundError:
+        if tolerate_missing:
+            warnings.warn(f'The community info df for pat="{pat}", cell_type="{cell_type}" is not found '
+                          f'(should be at "{fn}"). Returning as `None` instead!')
+            return None
+        else:
+            raise FileNotFoundError(
+                f'The community info df for pat={pat}, cell_type={cell_type} is not found '
+                f'(should be at "{fn}")..'
+            )
+
+
 def _compute_graph_stats(
     curr_pat_: str,
     curr_ctype_: str,
