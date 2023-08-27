@@ -26,7 +26,7 @@ if __name__ == '__main__':
     if args.out_path is None:
         args.out_path = os.path.join(
             os.path.dirname(args.in_path), 
-            f'enrichr_{os.path.basename(args.in_path)}'
+            f'enrichr_{args.enrichr_library}_{os.path.basename(args.in_path)}'
         )
     
     run_enrichr(

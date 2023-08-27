@@ -96,10 +96,10 @@ def run_enrichr(
     if group_col is not None:
         group_to_genes = in_df.groupby(group_col)[gene_col].agg(lambda x: x.to_list())
     else:
-        group_col = 'group_to_col'
+        group_col = 'cluster'
         group_to_genes = (
             in_df.assign(**{
-                group_col: [f'group_{i}' for i in range(in_df.shape[0])],  # creating a group column
+                group_col: [f'cluster_{i}' for i in range(in_df.shape[0])],  # creating a group column
                 gene_col: in_df[gene_col].map(lambda lst: [  # selecting the first `top_n` genes from the full list
                     el[: el.find(' ')] for el in lst.split('; ')
                 ][:top_n]
@@ -107,7 +107,7 @@ def run_enrichr(
             })
             ).set_index(group_col)[gene_col] 
 
-    print(f'Overall, detected {len(group_to_genes)} clusters: {group_to_genes.index.to_list()}\n')
+    print(f'Overall, detected {len(group_to_genes)} groups: {group_to_genes.index.to_list()}\n')
 
     out_df = pd.DataFrame()
     for group, gene_list in group_to_genes.items():
@@ -143,8 +143,9 @@ def run_enrichr(
         ])
 
     # Saving the results to .tsv file
-    out_df.to_csv(os.path.splitext(out_path)[0] + '.tsv', index=False, sep='\t')
+    save_to = os.path.splitext(out_path)[0] + '.tsv'
+    out_df.to_csv(save_to, index=False, sep='\t')
 
-    print(f'\nSuccess! Saved at {out_path}')
+    print(f'\nSuccess! Saved at {save_to}')
 
     return out_df

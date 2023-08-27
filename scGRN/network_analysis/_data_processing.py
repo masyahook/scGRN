@@ -710,7 +710,7 @@ def get_community_info(
 
         fn = os.path.join(
             data_home, data_folder, 'data', method, f'{algo}_communities', 
-            f'raw_data_communities_info.pickle'
+            'raw_data_communities_info.pickle'
         )
 
     # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
