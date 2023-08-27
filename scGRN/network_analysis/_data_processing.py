@@ -318,7 +318,7 @@ def get_sc_data(
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient data)
     :param data_home: The filepath to the data home folder
     :param tolerate_missing: True if tolerate missing data file (and output None in this case), False otherwise
 
@@ -326,7 +326,7 @@ def get_sc_data(
     """
 
     # Loading data that includes all patients
-    if pat is None or pat == 'all_data' or pat == 'all':
+    if pat is None or 'all' in pat:
 
         data_home = os.path.join(data_home, 'cell_types')
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
@@ -389,11 +389,11 @@ def get_num_cells(pat: str, cell_type: str, meta: pd.DataFrame) -> int:
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient data)
     :param meta: The dataframe containing metadata about patients (cell count, patient types, file paths)
     :return: The number of cells
     """
-    if pat is None or pat == 'all' or pat == 'all_data':
+    if pat is None or 'all' in pat:
         curr_meta = meta
     elif pat in ['C', 'M', 'S']:
         curr_meta = meta[meta['group'] == pat]
@@ -424,7 +424,7 @@ def get_viper_mat(
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient data)
     :param regulon: The regulon type, could be either 'pyscenic' (inferred by `pyscenic`) or 'dorothea' (obtained from
         `DoRothEA` database)
     :param data_home: The filepath to the data home folder
@@ -434,7 +434,7 @@ def get_viper_mat(
     """
 
     # Loading data that includes all patients
-    if pat is None or pat == 'all_data' or pat == 'all':
+    if pat is None or 'all' in pat:
 
         data_home = os.path.join(data_home, 'cell_types')
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
@@ -510,7 +510,7 @@ def get_adj_list(
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient data)
     :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
     :param filtered: The quantile threshold
     :param data_home: The filepath to the data home folder
@@ -524,7 +524,7 @@ def get_adj_list(
     filter_suffix = f"_filtered_{str(filtered).replace('.', '_')}" if filtered is not None else ''
 
     # Loading data that includes all patients
-    if pat is None or pat == 'all_data' or pat == 'all':
+    if pat is None or 'all' in pat:
 
         data_home = os.path.join(data_home, 'cell_types')
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
@@ -601,7 +601,7 @@ def get_nx_graph(
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient data)
     :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
     :param filtered: The quantile threshold
     :param data_home: The filepath to the data home folder
@@ -615,7 +615,7 @@ def get_nx_graph(
     filter_suffix = f"_filtered_{str(filtered).replace('.', '_')}" if filtered is not None else ''
 
     # Loading data that includes all patients
-    if pat is None or pat == 'all_data' or pat == 'all':
+    if pat is None or 'all' in pat:
 
         data_home = os.path.join(data_home, 'cell_types')
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
@@ -692,7 +692,7 @@ def get_community_info(
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_data', 'all' (the identifier of aggregated patient data)
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient data)
     :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
     :param algo: The community detection algorithm used
     :param data_home: The filepath to the data home folder
@@ -703,7 +703,7 @@ def get_community_info(
     """
 
     # Loading data that includes all patients
-    if pat is None or pat == 'all_data' or pat == 'all':
+    if pat is None or 'all' in pat:
 
         data_home = os.path.join(data_home, 'cell_types')
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
