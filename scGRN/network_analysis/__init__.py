@@ -20,4 +20,9 @@ from ._plotting import (
     graph_num_regulons_vs_num_cells,
     graph_stats_vs_num_cells,
     plot_avail_cell_types,
+    plot_cloud
+)
+from ._community import (
+    squeeze_graph,
+    netgraph_community_layout
 )
