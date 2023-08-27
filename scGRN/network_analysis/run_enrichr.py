@@ -13,7 +13,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Running EnrichR.')
     parser.add_argument('-i', '--in_path', type=str, help='The path to input data where gene sets are stored', required=True)
     parser.add_argument('-g', '--gene_col', type=str, help='The column name that stores gene names', required=True)
-    parser.add_argument('-o', '--out_path', type=str, help='The path to output data to store, if not specified the result will be save in the same folder')
+    parser.add_argument('-o', '--out_path', type=str, help=
+                        'The path to output data to store, if not specified the result will be '
+                        'saved in the same folder. Should be a .tsv file'
+                        )
     parser.add_argument('-c', '--group_col', type=str, help='The column names that store group names')
     parser.add_argument('-e', '--enrichr_library', type=str, help='The EnrichR library to use for enrichment analysis.', default='Reactome_2016')
     parser.add_argument('-q', '--query', type=str, help='The The query that can be used to select a subset of original dataset.', default=None)

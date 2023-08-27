@@ -1,6 +1,7 @@
 """Enrichment analysis."""
 
 import json
+import os
 import sys
 from io import StringIO
 from pathlib import Path
@@ -60,7 +61,7 @@ def run_enrichr(
 
     :param in_path: The path to input data where gene sets are stored
     :param gene_col: The column name that stores gene names
-    :param out_path: The path to output data to store
+    :param out_path: The path to output data to store, should be a .tsv file
     :param group_col: The column names that store group names
     :param enrichr_library: The EnrichR library to use for enrichment analysis. The list of libraries
         is available here: https://maayanlab.cloud/Enrichr/#libraries
@@ -75,6 +76,8 @@ def run_enrichr(
     :returns: The results from EnrichR that was performed on each group separately
     """
 
+    print(f'\nRunning EnrichR analysis on dataframe: {in_path}.\n\n')
+
     if in_path.endswith('.tsv'):
         in_df = pd.read_csv(in_path, sep='\t')
     elif in_path.endswith('.csv'):
@@ -82,10 +85,11 @@ def run_enrichr(
     elif in_path.endswith('.pickle'):
         in_df = pd.read_pickle(in_path)
     else:
-        raise NotImplementedError(f'Unsupported file format {in_df}. Currently .csv, .tsv and .pickle are supported')
+        raise NotImplementedError(f'Unsupported file format {in_path}. Currently .csv, .tsv and .pickle are supported')
     
     # Selecting a subset of records if needed
     if query is not None:
+        print(f'The query "{query}" was received, subsetting the dataframe..\n')
         in_df = in_df.query(query)
 
     # Creating a group -> gene list mapping
@@ -103,7 +107,6 @@ def run_enrichr(
             })
             ).set_index(group_col)[gene_col] 
 
-    print(f'\nRunning EnrichR analysis on dataframe: {in_path}.\n\n')
     print(f'Overall, detected {len(group_to_genes)} clusters: {group_to_genes.index.to_list()}\n')
 
     out_df = pd.DataFrame()
@@ -139,8 +142,8 @@ def run_enrichr(
             pd.read_csv(StringIO(response), sep='\t').assign(**{group_col: group})
         ])
 
-    # Saving the results to file
-    out_df.to_csv(out_path, index=False)
+    # Saving the results to .tsv file
+    out_df.to_csv(os.path.splitext(out_path)[0] + '.tsv', index=False, sep='\t')
 
     print(f'\nSuccess! Saved at {out_path}')
 
