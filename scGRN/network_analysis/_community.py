@@ -27,10 +27,9 @@ from tqdm.notebook import tqdm
 from wordcloud import WordCloud
 
 from ..config import _DATA_HOME, _PROJ_HOME, _STOPWORDS
-from ..utils import scale
+from ..utils import scale_int, get_elipsis_mask
 from ._auxiliary_data import load_gene_func_db
 from ._data_processing import get_nx_graph
-from ._plotting import get_elipsis_mask
 
 
 def netgraph_community_layout(
@@ -299,7 +298,9 @@ def squeeze_graph(
 
 def betweenness_centrality_parallel(
     G: nx.DiGraph,
-    processes: Union[int, None] = None
+    processes: Union[int, None] = None,
+    normalized: bool = True,
+    weight: Union[str, None] = None
 ) -> Dict[str, int]:
     """
     Compute betweenness centrality function in parallel for large graphs. Courtesy of:
@@ -330,8 +331,8 @@ def betweenness_centrality_parallel(
             [G] * num_chunks,
             node_chunks,
             [list(G)] * num_chunks,
-            [True] * num_chunks,
-            ['distance'] * num_chunks
+            [normalized] * num_chunks,
+            [weight] * num_chunks
         ),
     )
 
@@ -704,8 +705,13 @@ def process_communities(
     print('Finding high-centrality genes in the whole graph..')
     
     num_workers = max(multiprocessing.cpu_count() // 2, 1)
+    kwargs = {'weight': 'distance', 'normalized': True}
     whole_G_central_genes = dict(
-        sorted(betweenness_centrality_parallel(G, processes=num_workers).items(), key=lambda x: x[1], reverse=True)[:limit_anno_until]
+        sorted(
+            betweenness_centrality_parallel(
+                G, processes=num_workers, **kwargs
+            ).items(), key=lambda x: x[1], reverse=True
+        )[:limit_anno_until]
     )
     print(f'Computed the {"betweenness" if if_betweenness else "closeness"} centrality for all genes in the graph\n')
     
@@ -728,16 +734,18 @@ def process_communities(
 
     # Whether to filter the genes on which we compute the word cloud (most important genes)
     compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
-    distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+    kwargs = {'weight': 'distance', 'normalized': True} if if_betweenness else {'distance': 'distance'}
     all_partition_genes = {}
     norm_partition_genes = {}
     t = tqdm_cli(partition_genes_.items(), ascii=True)
     for i, genes in t:
         t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
+        if if_betweenness:
+            kwargs['k'] = min(G.subgraph(genes).order(), k)
         gene_scores = dict(
             sorted(
                 compute_centrality(
-                    G.subgraph(genes), k=min(G.subgraph(genes).order(), k), normalized=True, **distance_metric
+                    G.subgraph(genes), **kwargs
                 ).items(), 
                 key=lambda x: x[1], reverse=True
             )
@@ -750,7 +758,7 @@ def process_communities(
         norm_partition_genes[i] = dict(
             zip(
                 central_gene_scores.keys(), 
-                list(map(lambda x: int(x), scale(list(central_gene_scores.values()), 1, 100)))
+                scale_int(list(central_gene_scores.values()), 1, 100)
             )
         )
     print('Computed centrality scores for each gene in each community\n')

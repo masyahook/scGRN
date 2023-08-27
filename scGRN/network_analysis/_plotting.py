@@ -17,7 +17,7 @@ from wordcloud import WordCloud
 
 from ..config import _ALPHA, _NODE_SIZE, _STOPWORDS
 from ..config import _GGPLOT_COLORS as colors
-from ..utils import scale
+from ..utils import scale, scale_int, get_elipsis_mask
 from ._auxiliary_data import load_gene_func_db
 
 
@@ -493,29 +493,6 @@ def graph_num_regulons_vs_num_cells(graph_stats: dict, save_as: str = None) -> s
     return g
 
 
-def get_elipsis_mask(
-    h: float = 600,
-    w: float = 800
-) -> np.ndarray:
-    """
-    Create an elipsis mask, helpful when passing to WordCloud() to visualize a community.
-    
-    :param h: height of the elipsis
-    :param w: weight of the elipsis
-    
-    :returns: an (h x w) boolean matrix depicting an elipsis mask 
-    """
-
-    center = (int(w/2), int(h/2))
-    radius_x = w // 2
-    radius_y = h // 2
-
-    Y, X = np.ogrid[:h, :w]
-    mask = ((X - center[0])**2/radius_x**2 + (Y - center[1])**2/radius_y**2 >= 1)*255
-
-    return mask
-
-
 def plot_cloud(
     G: nx.DiGraph,
     partition: Dict[str, int],
@@ -567,19 +544,21 @@ def plot_cloud(
             partition_genes_[i] += [gene]
 
     compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
-    distance_metric = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+    kwargs = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
     partition_genes = {}
     t = tqdm(partition_genes_.items())
 
     # Whether to filter the genes on which we compute the word cloud (most important genes)
     if filter_genes:
         for i, genes in t:
+            if if_betweenness:
+                kwargs['k'] = min(G.subgraph(genes).order(), k)
             t.set_description(f'Processing cluster {i}, size={G.subgraph(genes).order()}')
             top_len = min(limit_anno_until, len(genes))
             top_gene_scores = dict(
                 sorted(
                     compute_centrality(
-                        G.subgraph(genes), k=min(G.subgraph(genes).order(), k), **distance_metric
+                        G.subgraph(genes), **kwargs
                     ).items(), 
                     key=lambda x: x[1], reverse=True
                 )[:top_len]
@@ -588,7 +567,8 @@ def plot_cloud(
             # displaying wordclouds (higher score - higher "frequency" or word size)
             norm_top_gene_scores = dict(
                 zip(
-                    top_gene_scores.keys(), list(map(lambda x: int(x), scale(list(top_gene_scores.values()), 1, 100)))
+                    top_gene_scores.keys(), 
+                    scale_int(list(top_gene_scores.values()), 1, 100)
                 )
             )
             partition_genes[i] = norm_top_gene_scores

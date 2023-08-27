@@ -252,3 +252,26 @@ def load_ndex_net(fn: str, remove_single_nodes: bool = True):
     raw_G = ndex2.create_nice_cx_from_file(fn).to_networkx(mode='default')
 
     return _process_ndex_net(raw_G, fn, remove_single_nodes)
+
+
+def get_elipsis_mask(
+    h: float = 600,
+    w: float = 800
+) -> np.ndarray:
+    """
+    Create an elipsis mask, helpful when passing to WordCloud() to visualize a community.
+    
+    :param h: height of the elipsis
+    :param w: weight of the elipsis
+    
+    :returns: an (h x w) boolean matrix depicting an elipsis mask 
+    """
+
+    center = (int(w/2), int(h/2))
+    radius_x = w // 2
+    radius_y = h // 2
+
+    Y, X = np.ogrid[:h, :w]
+    mask = ((X - center[0])**2/radius_x**2 + (Y - center[1])**2/radius_y**2 >= 1)*255
+
+    return mask
