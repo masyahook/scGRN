@@ -1,7 +1,7 @@
 """Plotting functions for network analysis."""
 
 from itertools import chain  # for aggregate functions
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -500,7 +500,7 @@ def plot_cloud(
     ax: Axes, 
     anno_db: str, 
     display_func: bool = False, 
-    filter_genes: bool = True, 
+    central_genes: Union[bool, Dict[int, Dict[str, float]]] = True, 
     if_betweenness: bool = True, 
     limit_anno_until: int = 50, 
     k: int = 3000,
@@ -523,7 +523,21 @@ def plot_cloud(
         `load_gene_func_db` for the full list
     :param display_func: True if display the gene functions in the word cloud, False if display gene
         names
-    :param filter_genes: True if use only top `limit_anno_until` important genes (based on centrality)
+    :param central_genes: Could be a boolean or a dictionary of dictionaries. 
+        If boolean:
+            True - use only top `limit_anno_until` important genes (based on centrality) for plotting
+            False - otherwise
+        If dictionary:
+            Pass the central genes and scores for each community for plotting. The dictionary has 
+                the following format:
+                central_genes = {
+                    0: {
+                        gene_name_1: gene_centrality_score_1,
+                        gene_name_2: gene_centrality_score_2,
+                        ...
+                    },
+                    ...
+                }
     :param if_betweenness: True if use betweenness centrality as node importance score, False if use
         closeness centrality
     :param limit_anno_until: Number of genes to use to calculate wordcloud
@@ -543,13 +557,12 @@ def plot_cloud(
         else:
             partition_genes_[i] += [gene]
 
-    compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
-    kwargs = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
-    partition_genes = {}
-    t = tqdm(partition_genes_.items())
-
     # Whether to filter the genes on which we compute the word cloud (most important genes)
-    if filter_genes:
+    if central_genes is True:
+        compute_centrality = nx.betweenness_centrality if if_betweenness else nx.closeness_centrality
+        kwargs = {'weight': 'distance'} if if_betweenness else {'distance': 'distance'}
+        partition_genes = {}
+        t = tqdm(partition_genes_.items())
         for i, genes in t:
             if if_betweenness:
                 kwargs['k'] = min(G.subgraph(genes).order(), k)
@@ -573,8 +586,12 @@ def plot_cloud(
             )
             partition_genes[i] = norm_top_gene_scores
         print('Filtered genes for generating the function word cloud..')
+
+    elif isinstance(central_genes, dict):
+        partition_genes = central_genes
+
     else:
-        partition_genes = {{gene_: 1 for gene_ in gene_list} for i, gene_list in partition_genes_.items()}
+        partition_genes = {i: {gene_: 1 for gene_ in gene_list} for i, gene_list in partition_genes_.items()}
            
     # If display gene function in the word clouds
     if display_func:

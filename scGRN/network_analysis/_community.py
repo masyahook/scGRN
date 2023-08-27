@@ -618,7 +618,7 @@ def process_communities(
     print('\nPerforming community analysis..\n\n')
     
     # Prepare everything to save the figs and metadata   
-    if pat is None or pat == 'all_data' or pat == 'all':
+    if pat is None or 'all' in pat:
         
         # Cell-type aggregated data
         data_folder = 'all_data' if cell_type in ['all', 'raw_data'] else cell_type.replace('raw_data_', '')
