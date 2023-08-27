@@ -277,6 +277,10 @@ for(i in 1:ncol(meta_ctype)){
     
     # Changing the identities to pat type  m
     Idents(object = curr_sobj) <- curr_sobj@meta.data$pat_type
+
+    # find all markers within patient group
+    sobj.markers <- FindAllMarkers(curr_sobj, min.pct = 0, logfc.threshold = 0, return.thresh=1.01, verbose = F)
+    write.table(sobj.markers, file=file_path(sample_data_dir, sprintf('tmp/tf_markers_df_%s.tsv', curr_type)), sep='\t')
     
     # find markers for every patient group compared to all remaining cells, report only the positive ones
     sobj.markers <- FindAllMarkers(curr_sobj, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, verbose = F)
