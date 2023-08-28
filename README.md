@@ -1,3 +1,5 @@
+![scGRN_logo](https://raw.githubusercontent.com/masyahook/scGRN/main/docs/scGRN.jpg)
+
 # `scGRN` - Gene regulatory network inference and analysis based on scRNA-sequencing data
 
 This repository contains the computational pipeline of the GRN-inference analysis based on expression of single cells. scRNA-sequencing datasets capture rich information about the transciptomic gene levels across thousands of cells and thus could be used to describe the gene interaction. All gene interactions could be depicted as **gene regulatory networks (GRNs)** that summarize genetic communication and regulation as a graph network. The focus of this repository is to provide an end-to-end pipeline to **infer and** <ins>**analyze**</ins> the GRNs that were computed based on scRNA-sequencing data.
