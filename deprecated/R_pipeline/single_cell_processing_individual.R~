@@ -1,0 +1,287 @@
+rm(list=ls())
+
+suppressPackageStartupMessages({
+  #if (!require("pacman")) install.packages("pacman")
+  #list.of.packages <- c("BiocManager","dplyr","SingleR","Matrix","Seurat","future","pheatmap","ggplot2","optparse","hdf5r")
+  #BiocManager::install("SingleR")
+  #BiocManager::install('limma')
+  #BiocManager::install('SingleCellExperiment')
+  #pacman::p_load(list.of.packages, character.only = TRUE)
+  library(SingleR)
+  library(Matrix)
+  library(Seurat)
+  library(dplyr)
+  library(future)
+  library(pheatmap)
+  library(ggplot2)
+  library(optparse)
+})
+
+###################### INPUT
+
+option_list = list(
+  make_option(c("-p", "--pat"), type="character", default=NULL, help="Patient ID", metavar="character")
+)
+opt_parser <- OptionParser(option_list=option_list, add_help_option = T)
+opt <- parse_args(opt_parser)
+
+if (is.null(opt$pat)){
+  opt$pat <- 'C141'
+}
+
+###################### LOAD DATA
+
+setwd('~/')
+
+# read metadata
+meta.path <- '/gpfs/projects/bsc08/bsc08890/data/GSE145926_RAW/metadata.tsv'
+meta <- read.table(meta.path, header=T, sep="\t", stringsAsFactors = F)
+
+opt$outdir <- paste0("/gpfs/projects/bsc08/bsc08890/res/covid_19/", opt$pat)
+opt$outdat <- paste0(opt$outdir, "/data/Seurat")
+opt$outfig <- paste0(opt$outdir, "/figs/Seurat")
+opt$patpath <- meta[which(meta$id == opt$pat),]$file
+opt$verbose <- T
+
+# create working directories
+dir.create(opt$outdir, recursive=T)
+dir.create(opt$outdat, recursive=T)
+dir.create(opt$outfig, recursive=T)
+
+cat("\n\n")
+cat("***********************************\n")
+cat("*** SINGLE-CELL DATA PROCESSING ***\n")
+cat("***********************************\n\n")
+cat("Outdir: ", opt$outdir, "\n")
+cat("Patient: ", opt$pat, "\n")
+cat("Verbose: ", opt$verbose, "\n\n")
+
+
+###################### LOAD DATA
+
+my_ggsave <- function(obj, filename){
+  suppressMessages(ggsave(obj, filename = filename))
+}
+
+###################### INIT
+cat("      - Init\n")
+
+# init Seurat object
+raw_counts <- Read10X_h5(opt$patpath, use.names = T, unique.features = T)
+sobj <- CreateSeuratObject(counts = raw_counts, min.cells = 3, min.features = 200, project = 'GRN inference')
+
+sobj@misc$plots <- list()
+
+###################### QC
+cat("      - QC\n")
+
+sobj[["percent.mt"]] <- PercentageFeatureSet(sobj, pattern = "^MT-")
+
+sobj@misc$plots$qc_violin <- VlnPlot(sobj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = .25)
+my_ggsave(sobj@misc$plots$qc_violin, filename = paste0(opt$outfig, "/qc_violin.png"))
+sobj@misc$plots$qc_violin
+
+plot1 <- FeatureScatter(sobj, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(sobj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+sobj@misc$plots$qc_cross <- plot1 + plot2
+my_ggsave(sobj@misc$plots$qc_cross, filename = paste0(opt$outfig, "/qc_cross.png"))
+sobj@misc$plots$qc_cross
+
+###################### FILTERING
+cat("      - Filtering\n")
+
+# empty droplets or double droplets ?
+sobj@misc$pre_filt_dim <- dim(sobj@assays$RNA)
+sobj <- subset(sobj, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 10)
+sobj@misc$post_filt_dim <- dim(sobj@assays$RNA)
+
+
+###################### NORMALIZATION
+cat("      - Normalization\n")
+
+sobj <- NormalizeData(object = sobj, verbose = F)
+
+
+###################### VARIABLE FEATURES
+cat("      - Find variable features\n")
+
+sobj <- FindVariableFeatures(object = sobj, selection.method = "vst", nfeatures = 2000, verbose = F)
+top10 <- head(VariableFeatures(sobj), 10)
+plot1 <- VariableFeaturePlot(sobj)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+sobj@misc$plots$variable_features <- plot1 + plot2
+sobj@misc$plots$variable_features
+my_ggsave(sobj@misc$plots$variable_features, filename = paste0(opt$outfig, "/variable_features.png"))
+
+
+###################### SCALE DATA
+cat("      - Scaling\n")
+
+sobj <- ScaleData(object = sobj, verbose = F)
+
+###################### DIM REDUCTION
+cat("      - Dimensionality reduction\n")
+
+## PCA
+sobj <- RunPCA(object = sobj, features = VariableFeatures(object = sobj), verbose = F)
+# loadings
+sobj@misc$plots$pca_loadings <- VizDimLoadings(sobj, dims = 1:4, reduction = "pca")
+my_ggsave(sobj@misc$plots$pca_loadings, filename = paste0(opt$outfig, "/pca_loadings.png"))
+sobj@misc$plots$pca_loadings
+# elbow
+sobj@misc$plots$pca_elbow <- ElbowPlot(sobj, ndims = 40)
+my_ggsave(sobj@misc$plots$pca_elbow, filename = paste0(opt$outfig, "/pca_elbow.png"))
+sobj@misc$plots$pca_elbow
+#
+sobj@misc$plots$pca_main <- DimPlot(object = sobj, reduction = "pca")
+my_ggsave(sobj@misc$plots$pca_main, filename = paste0(opt$outfig, "/pca_main.png"))
+sobj@misc$plots$pca_main
+sobj@misc$plots$pca_heatmap <- DimHeatmap(sobj, dims = 1:4, ncol=2, nfeatures = 30, cells = 1000, balanced = TRUE, fast = F)
+my_ggsave(sobj@misc$plots$pca_heatmap, filename = paste0(opt$outfig, "/pca_heatmap.png"))
+sobj@misc$plots$pca_heatmap
+
+# # number of components
+# sobj <- JackStraw(sobj, num.replicate = 100, dims=20)
+# sobj <- ScoreJackStraw(sobj, dims = 1:20)
+# JackStrawPlot(sobj, dims = 1:20)
+
+## T-SNE
+sobj <- RunTSNE(object = sobj, dims = 1:20, verbose = F)
+sobj@misc$plots$tsne_main <- DimPlot(object = sobj, reduction = "tsne")
+my_ggsave(sobj@misc$plots$tsne_main, filename = paste0(opt$outfig, "/tsne_main.png"))
+sobj@misc$plots$tsne_main
+
+## U-MAP
+sobj <- RunUMAP(object = sobj, dims=1:20, verbose = F)
+sobj@misc$plots$umap_main <- DimPlot(object = sobj, reduction = "umap")
+my_ggsave(sobj@misc$plots$umap_main, filename = paste0(opt$outfig, "/umap_main.png"))
+sobj@misc$plots$umap_main
+
+###################### FIND CLUSTERS
+cat("      - Find clusters\n")
+
+sobj <- FindNeighbors(object = sobj, verbose = F)
+sobj <- FindClusters(object = sobj, verbose = F)
+
+sobj@misc$plots$pca_clusters <- DimPlot(object = sobj, reduction = "pca")
+my_ggsave(sobj@misc$plots$pca_clusters, filename = paste0(opt$outfig, "/pca_clusters.png"))
+sobj@misc$plots$pca_clusters
+sobj@misc$plots$tsne_clusters <- DimPlot(object = sobj, reduction = "tsne")
+my_ggsave(sobj@misc$plots$tsne_clusters, filename = paste0(opt$outfig, "/tsne_clusters.png"))
+sobj@misc$plots$tsne_clusters
+sobj@misc$plots$umap_clusters <- DimPlot(object = sobj, reduction = "umap")
+my_ggsave(sobj@misc$plots$umap_clusters, filename = paste0(opt$outfig, "/umap_clusters.png"))
+sobj@misc$plots$umap_clusters
+
+
+###################### GENE MARKERS
+cat("      - Gene markers by cluster\n")
+
+# find markers for every cluster compared to all remaining cells, report only the positive ones
+sobj.markers <- FindAllMarkers(sobj, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, verbose = F)
+# XXX
+# sobj.markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
+sobj.markers %>% group_by(cluster) %>% top_n(n = 2, wt = "avg_log2FC")
+sobj@misc$markers <- sobj.markers
+# XXX
+# top10 <- sobj.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
+top10 <- sobj.markers %>% group_by(cluster) %>% top_n(n = 10, wt = "avg_log2FC")
+sobj@misc$plots$markers <- DoHeatmap(sobj, features = top10$gene) + NoLegend()
+my_ggsave(sobj@misc$plots$markers, filename = paste0(opt$outfig, "/markers.png"))
+sobj@misc$plots$markers
+
+# XXX
+###################### CELL TYPE IDENTIFICATION
+cat("      - Cell type identification\n")
+
+# Bioconductor obj
+sobj_se <- as.SingleCellExperiment(sobj)
+
+# Loading reference data
+ref.type <- 'HumanPrimaryCellAtlasData'
+load(file=paste0('/gpfs/bsc08/bsc08890/data/SingleR/', ref.type, '.RData'))
+
+# Select reference dataset
+# ref <- SingleR::BlueprintEncodeData()
+# ref <- SingleR::DatabaseImmuneCellExpressionData()
+# ref <- SingleR::HumanPrimaryCellAtlasData()
+# ref <- SingleR::MonacoImmuneData()
+
+# Prediction
+pred <- SingleR(test=sobj_se, ref=ref, labels=ref$label.main)
+sobj@misc$cell_type_ref <- ref
+sobj@misc$cell_type_pred <- pred
+sobj@misc$plots$cell_type_pred_dist <- plotScoreDistribution(pred, size = .25)
+my_ggsave(sobj@misc$plots$cell_type_pred_dist, filename = paste0(opt$outfig, "/cell_type_pred_dist.png"))
+sobj@misc$plots$cell_type_pred_heatmap <- plotScoreHeatmap(pred, show.pruned = T)
+my_ggsave(sobj@misc$plots$cell_type_pred_heatmap, filename = paste0(opt$outfig, "/cell_type_pred_heatmap.png"))
+
+# Cell type freqs
+png(paste0(opt$outfig, "/cell_type_freqs.png"), width=800, height=700, pointsize = 20)
+par(mar=c(5,10,3,3))
+freqs <- sort(table(pred$labels), decreasing = F)
+barplot(freqs, horiz=T, las=2)
+dev.off()
+
+# Cell type to clusters
+pheatmap(log(10+table(pred$labels, sobj$seurat_clusters)), filename = paste0(opt$outfig, "/cell_type_to_cluster.png"))
+
+# dim reduction plots
+sobj[["cell_type"]] <- pred$labels
+sobj@misc$plots$pca_cell_types <- DimPlot(object = sobj, reduction = "pca", group.by = "cell_type")
+my_ggsave(sobj@misc$plots$pca_cell_types, filename = paste0(opt$outfig, "/pca_cell_types.png"))
+sobj@misc$plots$tsne_cell_types <- DimPlot(object = sobj, reduction = "tsne", group.by = "cell_type")
+my_ggsave(sobj@misc$plots$tsne_cell_types, filename = paste0(opt$outfig, "/tsne_cell_types.png"))
+sobj@misc$plots$umap_cell_types <- DimPlot(object = sobj, reduction = "umap", group.by = "cell_type")
+my_ggsave(sobj@misc$plots$umap_cell_types, filename = paste0(opt$outfig, "/umap_cell_types.png"))
+
+
+## SUMMARIZE BY CELL TYPE
+summ_fun <- function(x) mean(x, trim=.005)
+summ_cells <- function(x, fun=summ_fun){
+  # print(dim(x))
+  apply(x,2,fun)
+}
+sobj@misc$cell_type_assay <- do.call("cbind",by(t(sobj@assays$RNA@data), pred$labels, summ_cells))
+
+
+###################### FINISH
+cat("      - Saving\n")
+
+save(sobj, file=paste0(opt$outdat, "/seurat_object.RData"))
+
+################# Load Seurat object from previous run ####################
+# load(paste0(opt$outdat, "/seurat_object.RData"))
+###########################################################################
+
+## TEXT FILES
+# meta - cell types
+cell.type.freq <- as.data.frame(table(sobj@misc$cell_type_pred$labels))
+colnames(cell.type.freq) <- c('Cell_type', 'Frequency')
+cell.type.freq <- cell.type.freq[order(-cell.type.freq$Frequency),]
+write.table(cell.type.freq, file=paste0(opt$outdat, 'cell_type_freq.tsv'), sep='\t', row.names=F, col.names=colnames(cell.type.freq), quote=F)
+
+# data
+#   general
+write.table(sobj@assays$RNA@data, file=paste0(opt$outdat, "/norm_data.tsv"), sep="\t", row.names=T, col.names=colnames(sobj@assays$RNA@data), quote=F)
+write.table(sobj@assays$RNA@counts, file=paste0(opt$outdat, "/raw_data.tsv"), sep="\t", row.names=T, col.names=colnames(sobj@assays$RNA@counts), quote=F)
+write.table(sobj@assays$RNA@scale.data, file=paste0(opt$outdat, "/scaled_data.tsv"), sep="\t", row.names=T, col.names=colnames(sobj@assays$RNA@scale.data), quote=F)
+# cell info
+write.table(sobj@meta.data, file=paste0(opt$outdat, "/cells_metadata.tsv"), sep="\t", row.names=T, col.names=T, quote=F)
+
+#   gene-specific
+HVG_norm_data = sobj@assays$RNA@data[rownames(sobj@assays$RNA@data) %in% VariableFeatures(sobj),]  # saving norm_data with HVG only  
+write.table(HVG_norm_data, file=paste0(opt$outdat, "/norm_data_HVG.tsv"), sep="\t", row.names=T, col.names=colnames(HVG_norm_data), quote=F)
+HVG_norm_counts = sobj@assays$RNA@counts[rownames(sobj@assays$RNA@counts) %in% VariableFeatures(sobj),]  # saving norm_data with HVG only  
+write.table(HVG_norm_counts, file=paste0(opt$outdat, "/raw_data_HVG.tsv"), sep="\t", row.names=T, col.names=colnames(HVG_norm_counts), quote=F)
+#   cell-specific
+cell_types <- unique(sobj[['cell_type']][['cell_type']])
+for (i in 1:length(cell_types))
+{
+  type <- cell_types[i]
+  cell_type_sobj <- subset(x=sobj, subset = cell_type == type)
+  # write.table(cell_type_sobj@assays$RNA@data, file=paste0(opt$outdat, sprintf("/norm_data_%s.tsv", type)), sep="\t", row.names=T, col.names=colnames(cell_type_sobj@assays$RNA@data), quote=F)
+  write.table(cell_type_sobj@assays$RNA@counts, file=paste0(opt$outdat, sprintf("/raw_data_%s.tsv", type)), sep="\t", row.names=T, col.names=colnames(cell_type_sobj@assays$RNA@counts), quote=F)
+}
+
+cat("\n\n[finished]\n\n")
