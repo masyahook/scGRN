@@ -1,0 +1,49 @@
+# This file contains the greasy tasks for GRN inference using grnboost2
+# Cell statistics:
+# "For T_cells we have 932 cells"
+# "For Macrophage we have 197 cells"
+# "For DC we have 48 cells"
+# "For Epithelial_cells we have 37 cells"
+# "For B_cell we have 33 cells"
+# "For NK_cell we have 96 cells"
+# "For Monocyte we have 86 cells"
+# "For Neutrophils we have 11 cells"
+# "For Pre-B_cell_CD34- we have 5 cells"
+# "For GMP we have 1 cells"
+# "For CMP we have 3 cells"
+######## ALL DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data.tsv ~/res/covid_19/C141/data/Seurat/raw_data.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_cor.tsv --transpose
+[# -1, -2 #] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_ctx.tsv --transpose --num_workers 6 
+######## HVG DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data_HVG.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data_HVG.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data_HVG.tsv ~/res/covid_19/C141/data/Seurat/raw_data_HVG.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_HVG_cor.tsv --transpose
+[# -1, -2 #] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data_HVG.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data_HVG.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_HVG_ctx.tsv --transpose --num_workers 6
+######## T cell DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data_T_cells.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data_T_cells.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data_T_cells.tsv ~/res/covid_19/C141/data/Seurat/raw_data_T_cells.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_T_cells_cor.tsv --transpose
+[# -1, -2 #] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data_T_cells.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data_T_cells.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_T_cells_ctx.tsv --transpose --num_workers 6
+######## MACROPHAGE DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data_Macrophage.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data_Macrophage.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data_Macrophage.tsv ~/res/covid_19/C141/data/Seurat/raw_data_Macrophage.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_Macrophage_cor.tsv --transpose
+[# -1, -2 #] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data_Macrophage.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data_Macrophage.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_Macrophage_ctx.tsv --transpose --num_workers 6
+######## NK CELL DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data_NK_cell.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data_NK_cell.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data_NK_cell.tsv ~/res/covid_19/C141/data/Seurat/raw_data_NK_cell.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_NK_cell_cor.tsv --transpose
+[# -1, -2 #] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data_NK_cell.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data_NK_cell.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_NK_cell_ctx.tsv --transpose --num_workers 6
+######## MONOCYTE DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data_Monocyte.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data_Monocyte.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data_Monocyte.tsv ~/res/covid_19/C141/data/Seurat/raw_data_Monocyte.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_Monocyte_cor.tsv --transpose
+[# -1, -2 #] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data_Monocyte.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data_Monocyte.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_Monocyte_ctx.tsv --transpose --num_workers 6
+######## DC DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data_DC.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data_DC.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data_DC.tsv ~/res/covid_19/C141/data/Seurat/raw_data_DC.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_DC_cor.tsv --transpose
+[# -1, -2 #] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data_DC.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data_DC.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_DC_ctx.tsv --transpose --num_workers 6
+######## EPITHELIAL CELLS DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data_Epithelial_cells.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data_Epithelial_cells.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data_Epithelial_cells.tsv ~/res/covid_19/C141/data/Seurat/raw_data_Epithelial_cells.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_Epithelial_cells_cor.tsv --transpose
+[# -1, -2#] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data_Epithelial_cells.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data_Epithelial_cells.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_Epithelial_cells_ctx.tsv --transpose --num_workers 6
+######## B CELL DATA ########
+pyscenic grn ~/res/covid_19/C141/data/Seurat/raw_data_B_cell.tsv ~/data/TF_lists/lambert2018.txt -m grnboost2 -o ~/res/covid_19/C141/data/grnboost2/raw_data_B_cell.tsv --transpose --num_workers 6
+[# -1 #] pyscenic add_cor ~/res/covid_19/C141/data/grnboost2/raw_data_B_cell.tsv ~/res/covid_19/C141/data/Seurat/raw_data_B_cell.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_B_cell_cor.tsv --transpose
+[# -1, -2 #] pyscenic ctx ~/res/covid_19/C141/data/grnboost2/raw_data_B_cell.tsv ~/data/SCENIC/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather --annotations_fname ~/data/SCENIC/motifs-v9-nr.hgnc-m0.001-o0.0.tbl --expression_mtx_fname ~/res/covid_19/C141/data/Seurat/raw_data_B_cell.tsv --output ~/res/covid_19/C141/data/grnboost2/raw_data_B_cell_ctx.tsv --transpose --num_workers 6

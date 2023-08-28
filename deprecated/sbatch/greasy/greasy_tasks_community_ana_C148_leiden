@@ -1,0 +1,13 @@
+../community_ana.sh C148 raw_data leiden GREASY 1
+../community_ana.sh C148 raw_data_Macrophage leiden GREASY 2
+../community_ana.sh C148 raw_data_T_cells leiden GREASY 3
+../community_ana.sh C148 raw_data_DC leiden GREASY 4
+../community_ana.sh C148 raw_data_Monocyte leiden GREASY 5
+../community_ana.sh C148 raw_data_NK_cell leiden GREASY 6
+../community_ana.sh C148 raw_data_B_cell leiden GREASY 7
+../community_ana.sh C148 raw_data_Epithelial_cells leiden GREASY 8
+../community_ana.sh C148 raw_data_Pro-B_cell_CD34+ leiden GREASY 9
+../community_ana.sh C148 raw_data_Neutrophils leiden GREASY 10
+../community_ana.sh C148 raw_data_CMP leiden GREASY 11
+../community_ana.sh C148 raw_data_GMP leiden GREASY 12
+../community_ana.sh C148 raw_data_Gametocytes leiden GREASY 13

@@ -1,0 +1,31 @@
+#!/bin/bash
+#SBATCH --job-name="GREASY_grnboost2"
+#SBATCH --workdir=.
+#SBATCH --output=./logs/GREASY_grnboost2_%j.out
+#SBATCH --error=./logs/GREASY_grnboost2_%j.err
+#SBATCH --cpus-per-task=1
+#SBATCH --ntasks=18
+#SBATCH --time=18:00:00
+
+
+module load python/3.7.4
+
+export PATH=/home/bsc08/bsc08890/.local/bin:/home/bsc08/bsc08890/bin:$PATH
+export PYTHONPATH=/home/bsc08/bsc08890/.local/lib/python3.7/site-packages:$PYTHONPATH
+
+METHOD=grnboost2
+
+##################################################
+#                 List of tasks                  #  
+##################################################
+FILE=~/sbatch/$METHOD_tasks
+
+##################################################
+#                 Greasy log file                #  
+##################################################
+export GREASY_LOGFILE=~/sbatch/logs/$METHOD_greasy.log
+
+##################################################
+#                   Run greasy!                  #  
+##################################################
+/apps/GREASY/latest/INTEL/IMPI/bin/greasy $FILE

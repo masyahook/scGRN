@@ -1,0 +1,28 @@
+#!/bin/bash
+#SBATCH --job-name="grnboost2"
+#SBATCH --workdir=.
+#SBATCH --output=./logs/grnboost2_%j.out
+#SBATCH --error=./logs/grnboost2_%j.err
+#SBATCH --cpus-per-task=18
+#SBATCH --ntasks=1
+#SBATCH --time=00:40:00
+
+##########################################
+############# Input params ###############
+##########################################
+
+CPUS_PER_TASK=${1:-18}
+TIME=${2:-"05:00:00"}
+SCRIPT_NAME=${3:-"run_pyscenic_full"}
+JOB_NAME=${3:-pyscenic}
+WORKDIR=${4:-.}
+OUTPUT=${5:-./logs/grnboost2_%j.out}
+ERROR=${6:-./logs/grnboost2_%j.err}
+NTASKS=${7:-1}
+
+##########################################
+##########################################
+##########################################
+
+sbatch $SCRIPT_NAME --job_name=$JOB_NAME --workdir=$WORKDIR --output=$WORKDIR --error$ERROR --cpus-per-task=$CPUS_PER_TASK --ntasks=$NTASKS --time=$TIME 
+
