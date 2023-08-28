@@ -7,7 +7,7 @@ As a case study, we focus on the COVID-19 patient dataset ([Liao *et al.*, 2020]
 ## Key features
 
 - Single cell processing using [`Seurat`](https://satijalab.org/seurat/) and cell type identification using [`SingleR`](https://bioconductor.org/packages/release/bioc/html/SingleR.html)
-- Gene regulatory network inference using [`arboreto`](https://arboreto.readthedocs.io) and [`pyscenic`](https://pyscenic.readthedocs.io)
+- Gene regulatory network inference using [`arboreto`](https://arboreto.readthedocs.io) and [`pyscenic`](https://pyscenic.readthedocs.io) (particularly with `GRNBoost2` algorithm)
 - Exploratory data analysis (EDA) of the inferred GRNs, description of nodes, edges and other GRN properties
 - Rich data visualization of GRNs, on-the-fly comparison with known singaling networks from [NDEx](https://www.ndexbio.org)
 - Community detection analysis of inferred GRN using [Louvain](https://python-louvain.readthedocs.io/en/latest/index.html) or [Leiden](https://leidenalg.readthedocs.io/en/stable/index.html) algorithms supported with [wordcloud](https://github.com/amueller/word_cloud) visualization
@@ -17,7 +17,12 @@ As a case study, we focus on the COVID-19 patient dataset ([Liao *et al.*, 2020]
 
 ## Types of inferred networks
 
-TF-target and gene-gene
+We will work with two types of networks:
+
+- **Gene-gene networks** - GRNs that are generated based on co-expression between **all** genes, i.e. we consider all possible pair-wise gene connections are possible
+- **TF-target networks** - GRNs that are generated based on co-expression and [motif enrichment](https://www.nature.com/articles/nmeth.4463#Abs2), i.e. consider only connections between transcription factors and corresponding targets
+
+![Main pipeline](https://raw.githubusercontent.com/masyahook/scGRN/main/docs/main_pipeline.png)
 
 ## Contact
 
