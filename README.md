@@ -20,7 +20,7 @@ As a case study, we focus on the COVID-19 patient dataset ([Liao *et al.*, 2020]
 We will work with two types of networks:
 
 - **Gene-gene networks** - GRNs that are generated based on co-expression between **all** genes, i.e. we consider all possible pair-wise gene connections are possible
-- **TF-target networks** - GRNs that are generated based on co-expression and [motif enrichment](https://www.nature.com/articles/nmeth.4463#Abs2), i.e. consider only connections between transcription factors and corresponding targets
+- **TF regulon networks** - GRNs that are generated based on co-expression and [motif enrichment](https://www.nature.com/articles/nmeth.4463#Abs2), i.e. consider only connections between transcription factors and corresponding targets a.k.a. regulons
 
 ![Main pipeline](https://raw.githubusercontent.com/masyahook/scGRN/main/docs/main_pipeline.png)
 
