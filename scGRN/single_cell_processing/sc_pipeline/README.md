@@ -4,7 +4,7 @@ This folder contains the workflow for processing the scRNA-seq matrix data of CO
 
 To run the `Seurat` pipeline for **only one** patient, please use in the simplest case:
 
-```
+```bash
     ./run_seurat_individual.sh <patient_ID> <path_to_metadata> <output_folder>
 ```
 
@@ -12,7 +12,7 @@ The `run_seurat_individual` could be run on a low-memory cluster (2 GB per core)
 
 This will process scRNA-seq matrix for the patient `<patient_ID>`. To run the Seurat pipeline for **all** patients **in parallel**, please use in the simplest case:
 
-```
+```bash
     ./run_seurat.sh <path_to_metadata> <output_folder>
 ```
 
@@ -20,7 +20,7 @@ The `run_seurat` could be also run on a low-memory cluster (2 GB per core), 48 c
 
 After running `run_seurat.sh` and processing each patient data separately, the next task is to merge patient data *cell type-wise* (e.g. all T cells from all patients into one dataset) to subsequently obtain gene regulatory networks for each *cell type*. Please use in the simplest case:
 
-```
+```bash
     ./run_seurat_merged.sh <path_to_metadata> <output_folder>
 ```
 
@@ -28,7 +28,7 @@ The `run_seurat_merged` requires high-mem nodes (8 GB per core, a full node with
 
 To run the **full** COVID-19 single cell processing pipeline (i.e. `run_seurat + run_seurat_merged`) that processes all patients and then merges data, please use in the simplest case:
 
-```
+```bash
   ./sc_pipeline.sh <path_to_metadata> <output_folder>
 ```
 
@@ -36,30 +36,30 @@ Also, for quick generation of input commands please use the `notebooks/Generate_
 
 The pipeline will produce several folders in the `<output_folder>` each corresponding to a patient-specific data, or cell type-specific data. Each patient-specific folder will be labeled by `<patient_ID>`, while cell type-specific folder will be stored in `cell_types` folder. The full file structure is described below:
 
-```
+```bash
 <output_folder>
-|-- <patient_ID_1>
-|   |-- data
-|   |   `-- Seurat
-|   `-- figs
-|       `-- Seurat
+├── <patient_ID_1>
+│   ├── data
+│   │   └── Seurat
+│   └── figs
+│       └── Seurat
 |-- <patient_ID_2>
-|   |-- data
-|   |   `-- Seurat
-|   `-- figs
-|       `-- Seurat
+│   ├── data
+│   │   └── Seurat
+│   └── figs
+│       └── Seurat
 |-- cell_types
-|   |-- <cell_type_1>
-|   |   |-- data
-|   |   |   `-- Seurat
-|   |   `-- figs
-|   |       `-- Seurat
-|   `-- <cell_type_2>
-|       |-- data
-|       |   `-- Seurat
-|       `-- figs
-|           `-- Seurat
-`-- cell_type_meta.tsv
+│   ├── <cell_type_1>
+│   │   ├── data
+│   │   │   └── Seurat
+│   │   └── figs
+│   │       └── Seurat
+│   └── <cell_type_2>
+│       ├── data
+│       │   └── Seurat
+│       └── figs
+│           └── Seurat
+└── cell_type_meta.tsv
 ```
 
 Each `Seurat` folder will contain data to corresponding patient/cell type. For more information about arbitrary input parameters and output format please look in the corresponding scripts.

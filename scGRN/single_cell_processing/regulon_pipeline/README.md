@@ -39,35 +39,37 @@ And finally, to run the **full** `VIPER` regulon activity pipeline (first - infe
     ./regulon_pipeline.sh <path_to_metadata> <path_to_cell_type_metadata> <output_folder> <pyscenic|dorothea|pyscenic_dorothea>
 ```
 
+Also, for quick generation of input commands please use the `notebooks/Generate_sbatch_commands.ipynb` notebook, which will streamline the batch job scheduling on Slurm cluster.
+
 The pipeline will produce a `regulon` subfolder in the corresponding Seurat-produced data folder:
 
-```
+```bash
 <output_folder>
-|-- <patient_ID_1>
-|   |-- data
-|   |   `-- Seurat
-|   |       `-- regulon
-|   |           `-- pickle
-|   `-- figs
-|       `-- Seurat
-|           `-- regulon
-|-- cell_types
-|   |-- <cell_type_1>
-|   |   |-- data
-|   |   |   `-- Seurat
-|   |   |       `-- regulon
-|   |   |           `-- pickle
-|   |   `-- figs
-|   |       `-- Seurat
-|   |            `-- regulon
-|   `-- <cell_type_2>
-|       |-- data
-|       |   `-- Seurat
-|       |       `-- regulon
-|       |           `-- pickle
-|       `-- figs
-|           `-- Seurat
-|              `-- regulon
+├── <patient_ID_1>
+│   ├── data
+│   |   └── Seurat
+│   |       └── regulon
+│   |           └── pickle
+│   └── figs
+│       └── Seurat
+│           └── regulon
+├── cell_types
+│   ├── <cell_type_1>
+│   |   ├── data
+│   |   |   └── Seurat
+│   |   |       └── regulon
+│   |   |           └── pickle
+│   |   └── figs
+│   |       └── Seurat
+│   |            └── regulon
+│   └── <cell_type_2>
+│       ├── data
+│       |   └── Seurat
+│       |       └── regulon
+│       |           └── pickle
+│       └── figs
+│           └── Seurat
+│              └── regulon
 ```
 
 For more information about arbitrary input parameters and output format please look in the corresponding scripts.

@@ -8,7 +8,7 @@ import ndex2
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Download NDEx network using UUID.')
-    parser.add_argument('-i', '--id', type=str, help='The UUID of the NDExx network', required=True)
+    parser.add_argument('-i', '--id', type=str, help='The UUID of the NDEx network', required=True)
     parser.add_argument('-f', '--folder', type=str, help='The folder where to save the network', required=True)
     parser.add_argument('-n', '--name', type=str, help='The name of the .cx file, if None then the name from the NDEx '
                                                        'will be used', default=None)

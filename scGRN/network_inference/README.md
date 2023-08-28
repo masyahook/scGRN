@@ -14,13 +14,13 @@ This folder contains the workflow for computing the gene regulatory network (GRN
 
 To run GRN inference for **all gene-gene connections** for a given dataset, please use:
 
-```
+```bash
   ./infer_GRN.sh <"grnboost2"|"genie3"> <path_to_data> <num_workers> <q_threshold> <logging_folder_path>
 ```
 
 To run GRN inference for **TF-target only connections** for a given dataset, please use:
 
-```
+```bash
   ./infer_GRN.sh <"grnboost2"|"genie3"> <path_to_data> <num_workers> <q_threshold> <logging_folder_path> <path_to_tf_file> <path_to_reg_feature_db> <path_to_motif_annotation_data>
 ```
 
@@ -28,13 +28,15 @@ To run GRN inference for **TF-target only connections** for a given dataset, ple
 
 Alternatively, the user can use custom scripts in `ana_scripts` folder where one can specify the type of data to focus on. For example, to run GRN inference **for a specific patient**, please use:
 
-```
+```bash
   ./ana_scripts/infer_pat_GRN.sh <"grnboost2"|"genie3"> <patient_ID> <cell_type_ID> <num_workers> <q_threshold> <path_to_tf_file - if in TF-target mode>
 ```
 
+### Running GRN inference for aggregated data
+
 Similarly, to run GRN inference for **cell type aggregated data**, please use:
 
-```
+```bash
   ./ana_scripts/infer_agg_GRN.sh <"grnboost2"|"genie3"> <cell_type_ID> <pat_type_ID> <num_workers> <q_threshold> <path_to_tf_file - if run in TF-target mode>
 ```
 
@@ -46,25 +48,27 @@ In case the user wants to infer **only TF-target enriched** connections, it is *
 
 All these data resources could be obtained from [here](https://resources.aertslab.org/cistarget/). The user could also find additional explanations in the original [`pySCENIC` workflow paper](https://www.nature.com/articles/s41596-020-0336-2#Sec32).
 
+Also, for quick generation of input commands please use the `notebooks/Generate_sbatch_commands.ipynb` notebook, which will streamline the batch job scheduling on Slurm cluster.
+
 ## Other details
 
 In addition to produced lists of adjacencies that are saved in `.tsv` format, the scripts will also convert the data to `.pickle` format which can be loaded faster during the subsequent analysis. Also, it will filter out low-confident gene connections using quantile filtering (`q_threshold` parameter) and save [`NetworkX`](https://networkx.org) graphs constructed on inferred adjacency lists. All `.pickle` adjacency list files will be stored in corresponding `pickle` folder, while [`NetworkX`](https://networkx.org) graphs in `gpickle` format will be stored in `nx_graph` folder. Overall, the file structure of the outputs (when using `method = grnboost2`):
 
-```
+```bash
 <output_folder>
-|-- data
-|   |-- Seurat
-|   `-- grnboost2
-|       |-- pickle  # unfiltered and filtered adjacency lists in .pickle format
-|       |-- nx_graph  # unfiltered and filtered NetworkX graphs in .gpickle format
-|       |-- <data_name>.tsv
-|       |-- <data_name>_cor.tsv
-|       |-- <data_name>_TF.tsv
-|       |-- <data_name>_TF_cor.tsv
-|       `-- <data_name>_TF_ctx.tsv
-`-- figs
-    |-- Seurat
-    `-- grnboost2
+├── data
+│   ├── Seurat
+│   └── grnboost2
+│       ├── pickle  # unfiltered and filtered adjacency lists in .pickle format
+│       ├── nx_graph  # unfiltered and filtered NetworkX graphs in .gpickle format
+│       ├── <data_name>.tsv
+│       ├── <data_name>_cor.tsv
+│       ├── <data_name>_TF.tsv
+│       ├── <data_name>_TF_cor.tsv
+│       ├── <data_name>_TF_ctx.tsv
+└── figs
+    ├── Seurat
+    └── grnboost2
 ```
 
 The optimal use of `pySCENIC` package requires careful memory and CPU allocation for each parallelized process. The GRN inference is **memory-heavy** and very high parallelization level could lead to memory overload and stalled processes. The general recommendations regarding choosing `num_workers` parameter (number of parallel processes):
