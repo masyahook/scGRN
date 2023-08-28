@@ -1,4 +1,4 @@
-![scGRN_logo](https://raw.githubusercontent.com/masyahook/scGRN/main/docs/scGRN_logo.jpg)
+![scGRN_logo](https://raw.githubusercontent.com/masyahook/scGRN/main/docs/scGRN_logo.png)
 
 # `scGRN` - Gene regulatory network inference and analysis based on scRNA-sequencing data
 
