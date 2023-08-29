@@ -2,6 +2,7 @@ Rplots.pdf
 data/*
 downloads/*
 .*
+!.pre-commit-config.yaml
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 */__pycache__/*

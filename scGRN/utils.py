@@ -1,19 +1,15 @@
+"""Utilities."""
 import os
 import typing
 
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
 from pandas.io.formats.style import Styler
-
 from sklearn.preprocessing import MinMaxScaler
 
 
-def scale(
-        x: typing.Iterable[float],
-        min_x: float,
-        max_x: float
-) -> list:
+def scale(x: typing.Iterable[float], min_x: float, max_x: float) -> list:
     """
     Scale the input array `x` between `min_x` and `max_x`.
 
@@ -25,19 +21,13 @@ def scale(
     """
 
     return list(
-        MinMaxScaler(
-            feature_range=(min_x, max_x)
-        ).fit_transform(
+        MinMaxScaler(feature_range=(min_x, max_x)).fit_transform(
             np.expand_dims(np.array(x), axis=1)
         )[:, 0]
     )
 
 
-def scale_int(
-        x: typing.Iterable[float],
-        min_x: float,
-        max_x: float
-) -> list:
+def scale_int(x: typing.Iterable[float], min_x: float, max_x: float) -> list:
     """
     Scale the input array `x` between `min_x` and `max_x` with additional rounding of output values.
 
@@ -49,10 +39,9 @@ def scale_int(
     """
 
     return [
-        int(el) for el in list(
-            MinMaxScaler(
-                feature_range=(min_x, max_x)
-            ).fit_transform(
+        int(el)
+        for el in list(
+            MinMaxScaler(feature_range=(min_x, max_x)).fit_transform(
                 np.expand_dims(np.array(x), axis=1)
             )[:, 0]
         )
@@ -73,23 +62,28 @@ def is_non_empty(fn: str) -> bool:
 
 def style_bool_df(df: pd.DataFrame) -> Styler:
     """
-    Style (HTML coloring) the Pandas dataframe consisting of True (in green), False (in red) and NaN (in yellow) values.
+    Style (HTML coloring) the Pandas dataframe consisting of True (in green), False (in red) and NaN
+    (in yellow) values.
 
     :param df: Pandas dataframe to style
 
     :return Styled dataframe
     """
 
-    check, missing, cross = u'\u2713', '?', u'\u2715'  # green, red, yellow
+    check, missing, cross = "\u2713", "?", "\u2715"  # green, red, yellow
 
     return df.applymap(  # replace boolean values with check, cross and question marks
         lambda x: check if x is True else missing if x is False else cross
     ).style.apply(
         lambda x: [
             "background-color: green"
-            if v == check else "background-color: red" if v == missing
-            else "background-color: yellow" for v in x
-        ], axis=1
+            if v == check
+            else "background-color: red"
+            if v == missing
+            else "background-color: yellow"
+            for v in x
+        ],
+        axis=1,
     )
 
 
@@ -103,7 +97,7 @@ def save_pickle(f: typing.Any, fn: str):
 
     import pickle
 
-    with open(fn, 'wb') as fo:
+    with open(fn, "wb") as fo:
         pickle.dump(f, fo)
 
 
@@ -118,20 +112,18 @@ def load_pickle(fn: str) -> typing.Any:
 
     import pickle
 
-    with open(fn, 'rb') as fo:
+    with open(fn, "rb") as fo:
         f = pickle.load(fo)
 
     return f
 
 
 def _process_ndex_net(
-        raw_G: nx.MultiGraph,
-        net_fn: str,
-        remove_single_nodes: bool = True
+    raw_G: nx.MultiGraph, net_fn: str, remove_single_nodes: bool = True
 ) -> nx.DiGraph:
     """
-    Process the loaded `.cx` file, convert it to NetworkX object and adapt it to the pipeline. Each raw network is
-        scanned for type identifiers and subsequently processed.
+    Process the loaded `.cx` file, convert it to NetworkX object and adapt it to the pipeline. 
+        Each raw network is scanned for type identifiers and subsequently processed.
 
     :param raw_G: The raw NetworkX graph
     :param net_fn: The `.cx` file path
@@ -150,88 +142,130 @@ def _process_ndex_net(
 
     # Define the network type
     node_0 = list(raw_G.nodes(data=True))[0]
-    if 'bel_function_type' in node_0[1].keys():
-        source = 'causalbionet'
-    elif '__gpml:textlabel' in node_0[1].keys():
-        source = 'wikipathways'
+    if "bel_function_type" in node_0[1].keys():
+        source = "causalbionet"
+    elif "__gpml:textlabel" in node_0[1].keys():
+        source = "wikipathways"
     else:
-        source = 'signor'
+        source = "signor"
 
-    if source == 'causalbionet':
-
+    if source == "causalbionet":
         tmp_nodes = {}
         node_duplicates = {}
         for node_i, node_info in raw_G.nodes(data=True):
-            if ':' in node_info['name']:
-                name = '+'.join(re.findall(r'(?<=\:).+?(?=\))', node_info['name'], re.IGNORECASE))
+            if ":" in node_info["name"]:
+                name = "+".join(
+                    re.findall(r"(?<=\:).+?(?=\))", node_info["name"], re.IGNORECASE)
+                )
             else:
-                name = re.findall(r'(?<=\().+?(?=\))', node_info['name'], re.IGNORECASE)[0]
-            name = name[:name.find(',')] if '(' in name else name
+                name = re.findall(
+                    r"(?<=\().+?(?=\))", node_info["name"], re.IGNORECASE
+                )[0]
+            name = name[: name.find(",")] if "(" in name else name
             if name not in node_duplicates:
                 node_duplicates[name] = 0
             else:
                 node_duplicates[name] += 1
-            new_name = name + node_duplicates[name] * '*'
-            tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
-            attrs = {'type': node_info['bel_function_type'], 'full_name': node_info['name']}
-            G.add_node(new_name, **attrs)
-        for st_i, end_i, edge_info in raw_G.edges(data=True):
-            st_name, end_name = tmp_nodes[st_i]['new_name'], tmp_nodes[end_i]['new_name']
-            inter = edge_info['interaction']
+            new_name = name + node_duplicates[name] * "*"
+            tmp_nodes[node_i] = {"old_name": name, "new_name": new_name}
             attrs = {
-                'regulation': 'up' if 'increases' in inter.lower() else 'down' if 'decreases' in inter.lower() else None,
-                'info': inter}
+                "type": node_info["bel_function_type"],
+                "full_name": node_info["name"],
+            }
+            G.add_node(new_name, **attrs)
+        for st_i, end_i, edge_info in raw_G.edges(data=True):
+            st_name, end_name = (
+                tmp_nodes[st_i]["new_name"],
+                tmp_nodes[end_i]["new_name"],
+            )
+            inter = edge_info["interaction"]
+            attrs = {
+                "regulation": "up"
+                if "increases" in inter.lower()
+                else "down"
+                if "decreases" in inter.lower()
+                else None,
+                "info": inter,
+            }
             G.add_edge(st_name, end_name, **attrs)
 
-    elif source == 'wikipathways':
-
+    elif source == "wikipathways":
         # Removing empty nodes
-        raw_G.remove_nodes_from([node_i for node_i, node_info in raw_G.nodes(data=True) if 'name' not in node_info])
+        raw_G.remove_nodes_from(
+            [
+                node_i
+                for node_i, node_info in raw_G.nodes(data=True)
+                if "name" not in node_info
+            ]
+        )
         # Removing phosphorus
-        raw_G.remove_nodes_from([node_i for node_i, node_info in raw_G.nodes(data=True) if node_info['name'] == 'P'])
+        raw_G.remove_nodes_from(
+            [
+                node_i
+                for node_i, node_info in raw_G.nodes(data=True)
+                if node_info["name"] == "P"
+            ]
+        )
         tmp_nodes = {}
         node_duplicates = {}
         for node_i, node_info in raw_G.nodes(data=True):
-            name = node_info['name']
+            name = node_info["name"]
             if name not in node_duplicates:
                 node_duplicates[name] = 0
             else:
                 node_duplicates[name] += 1
-            new_name = name + node_duplicates[name] * '*'
-            tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
-            attrs = {'type': 'None', 'full_name': 'None'}
+            new_name = name + node_duplicates[name] * "*"
+            tmp_nodes[node_i] = {"old_name": name, "new_name": new_name}
+            attrs = {"type": "None", "full_name": "None"}
             G.add_node(new_name, **attrs)
         for st_i, end_i, edge_info in raw_G.edges(data=True):
-            st_name, end_name = tmp_nodes[st_i]['new_name'], tmp_nodes[end_i]['new_name']
-            attrs = {'regulation': None, 'info': None}
+            st_name, end_name = (
+                tmp_nodes[st_i]["new_name"],
+                tmp_nodes[end_i]["new_name"],
+            )
+            attrs = {"regulation": None, "info": None}
             G.add_edge(st_name, end_name, **attrs)
-    elif source == 'signor':
+    elif source == "signor":
         tmp_nodes = {}
         node_duplicates = {}
         for node_i, node_info in raw_G.nodes(data=True):
-            name = node_info['name']
+            name = node_info["name"]
             if name not in node_duplicates:
                 node_duplicates[name] = 0
             else:
                 node_duplicates[name] += 1
-            new_name = name + node_duplicates[name] * '*'
-            tmp_nodes[node_i] = {'old_name': name, 'new_name': new_name}
-            attrs = {'node_type': node_info['type'], 'full_name': None}
+            new_name = name + node_duplicates[name] * "*"
+            tmp_nodes[node_i] = {"old_name": name, "new_name": new_name}
+            attrs = {"node_type": node_info["type"], "full_name": None}
             G.add_node(new_name, **attrs)
         for st_i, end_i, edge_info in raw_G.edges(data=True):
-            inter = edge_info['interaction']
-            attrs = {'regulation': 'up' if 'up' in inter.lower() else 'down' if 'down' in inter.lower() else None,
-                     'info': edge_info['mechanism'] if 'mechanism' in edge_info else None}
-            st_name, end_name = tmp_nodes[st_i]['new_name'], tmp_nodes[end_i]['new_name']
+            inter = edge_info["interaction"]
+            attrs = {
+                "regulation": "up"
+                if "up" in inter.lower()
+                else "down"
+                if "down" in inter.lower()
+                else None,
+                "info": edge_info["mechanism"] if "mechanism" in edge_info else None,
+            }
+            st_name, end_name = (
+                tmp_nodes[st_i]["new_name"],
+                tmp_nodes[end_i]["new_name"],
+            )
             G.add_edge(st_name, end_name, **attrs)
 
     else:
-
         raise NameError(f'No identified source for "{net_fn}"')
 
     if remove_single_nodes:
-        single_node_sets = list(filter(lambda x: len(x) == 1, nx.weakly_connected_components(G)))
-        single_nodes = reduce(lambda x, y: x.union(y), single_node_sets) if len(single_node_sets) > 0 else set()
+        single_node_sets = list(
+            filter(lambda x: len(x) == 1, nx.weakly_connected_components(G))
+        )
+        single_nodes = (
+            reduce(lambda x, y: x.union(y), single_node_sets)
+            if len(single_node_sets) > 0
+            else set()
+        )
         G.remove_nodes_from(single_nodes)
 
     return G
@@ -249,29 +283,28 @@ def load_ndex_net(fn: str, remove_single_nodes: bool = True):
 
     import ndex2
 
-    raw_G = ndex2.create_nice_cx_from_file(fn).to_networkx(mode='default')
+    raw_G = ndex2.create_nice_cx_from_file(fn).to_networkx(mode="default")
 
     return _process_ndex_net(raw_G, fn, remove_single_nodes)
 
 
-def get_elipsis_mask(
-    h: float = 600,
-    w: float = 800
-) -> np.ndarray:
+def get_elipsis_mask(h: float = 600, w: float = 800) -> np.ndarray:
     """
     Create an elipsis mask, helpful when passing to WordCloud() to visualize a community.
-    
+
     :param h: height of the elipsis
     :param w: weight of the elipsis
-    
-    :returns: an (h x w) boolean matrix depicting an elipsis mask 
+
+    :returns: an (h x w) boolean matrix depicting an elipsis mask
     """
 
-    center = (int(w/2), int(h/2))
+    center = (int(w / 2), int(h / 2))
     radius_x = w // 2
     radius_y = h // 2
 
     Y, X = np.ogrid[:h, :w]
-    mask = ((X - center[0])**2/radius_x**2 + (Y - center[1])**2/radius_y**2 >= 1)*255
+    mask = (
+        (X - center[0]) ** 2 / radius_x**2 + (Y - center[1]) ** 2 / radius_y**2 >= 1
+    ) * 255
 
     return mask

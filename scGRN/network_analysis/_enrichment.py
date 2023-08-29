@@ -2,15 +2,14 @@
 
 import json
 import os
-import sys
 from io import StringIO
 from pathlib import Path
 
 import pandas as pd
 import requests
 
-ENRICHR_POST = 'http://amp.pharm.mssm.edu/Enrichr/addList'
-ENRICHR_GET = 'http://amp.pharm.mssm.edu/Enrichr/export'
+ENRICHR_POST = "http://amp.pharm.mssm.edu/Enrichr/addList"
+ENRICHR_GET = "http://amp.pharm.mssm.edu/Enrichr/export"
 
 
 def run_enrichr(
@@ -18,13 +17,13 @@ def run_enrichr(
     gene_col: str,
     out_path: str,
     group_col: str = None,
-    enrichr_library: str = 'Reactome_2016',
+    enrichr_library: str = "Reactome_2016",
     query: str = None,
     top_n: int = 50,
 ) -> pd.DataFrame:
     """
-    Run enrichment analysis with Enrichr on the passed dataset `in_path` with genes in `gene_col` 
-    and groups in `group_col`. This function will run Enrichr on the gene set for each group and 
+    Run enrichment analysis with Enrichr on the passed dataset `in_path` with genes in `gene_col`
+    and groups in `group_col`. This function will run Enrichr on the gene set for each group and
     save results in the passed file. A user can run the function for the following cases:
 
         1. Finding functional differences between two or more groups of cells based on sets of genes
@@ -63,30 +62,32 @@ def run_enrichr(
     :param gene_col: The column name that stores gene names
     :param out_path: The path to output data to store, should be a .tsv file
     :param group_col: The column names that store group names
-    :param enrichr_library: The EnrichR library to use for enrichment analysis. The list of libraries
-        is available here: https://maayanlab.cloud/Enrichr/#libraries
+    :param enrichr_library: The EnrichR library to use for enrichment analysis. The list of 
+        libraries is available here: https://maayanlab.cloud/Enrichr/#libraries
     :param query: The query that can be used to select a subset of original dataset. For example, it
-        is useful when a user wants to run Enrichr only on positively expressed (and statistically 
+        is useful when a user wants to run Enrichr only on positively expressed (and statistically
         significant) genes within each group, i.e. in this case:
             `query="'p_val_adj' < 0.05 & 'avg_log2FC' > 1"`
-    :param top_n: If a user wants to run EnrichR only on the first `top_n` genes, it can use this 
+    :param top_n: If a user wants to run EnrichR only on the first `top_n` genes, it can use this
         parameter. Useful in the 2nd case above (running only on the most central genes within each
         community)
 
     :returns: The results from EnrichR that was performed on each group separately
     """
 
-    print(f'\nRunning EnrichR analysis on dataframe: {in_path}.\n\n')
+    print(f"\nRunning EnrichR analysis on dataframe: {in_path}.\n\n")
 
-    if in_path.endswith('.tsv'):
-        in_df = pd.read_csv(in_path, sep='\t')
-    elif in_path.endswith('.csv'):
-        in_df = pd.read_csv(in_path, sep=',')
-    elif in_path.endswith('.pickle'):
+    if in_path.endswith(".tsv"):
+        in_df = pd.read_csv(in_path, sep="\t")
+    elif in_path.endswith(".csv"):
+        in_df = pd.read_csv(in_path, sep=",")
+    elif in_path.endswith(".pickle"):
         in_df = pd.read_pickle(in_path)
     else:
-        raise NotImplementedError(f'Unsupported file format {in_path}. Currently .csv, .tsv and .pickle are supported')
-    
+        raise NotImplementedError(
+            f"Unsupported file format {in_path}. Currently .csv, .tsv and .pickle are supported"
+        )
+
     # Selecting a subset of records if needed
     if query is not None:
         print(f'The query "{query}" was received, subsetting the dataframe..\n')
@@ -96,56 +97,63 @@ def run_enrichr(
     if group_col is not None:
         group_to_genes = in_df.groupby(group_col)[gene_col].agg(lambda x: x.to_list())
     else:
-        group_col = 'cluster'
+        group_col = "cluster"
         group_to_genes = (
-            in_df.assign(**{
-                group_col: [f'cluster_{i}' for i in range(in_df.shape[0])],  # creating a group column
-                gene_col: in_df[gene_col].map(lambda lst: [  # selecting the first `top_n` genes from the full list
-                    el[: el.find(' ')] for el in lst.split('; ')
-                ][:top_n]
-                )
-            })
-            ).set_index(group_col)[gene_col] 
+            in_df.assign(
+                **{
+                    group_col: [
+                        f"cluster_{i}" for i in range(in_df.shape[0])
+                    ],  # creating a group column
+                    gene_col: in_df[gene_col].map(
+                        lambda lst: [  # selecting the first `top_n` genes from the full list
+                            el[: el.find(" ")] for el in lst.split("; ")
+                        ][
+                            :top_n
+                        ]
+                    ),
+                }
+            )
+        ).set_index(group_col)[gene_col]
 
-    print(f'Overall, detected {len(group_to_genes)} groups: {group_to_genes.index.to_list()}\n')
+    print(
+        f"Overall, detected {len(group_to_genes)} groups: {group_to_genes.index.to_list()}\n"
+    )
 
     out_df = pd.DataFrame()
     for group, gene_list in group_to_genes.items():
-        
-        print(f'    Processing {group}..')
+        print(f"    Processing {group}..")
 
         # Uploading the gene set to EnrichR
-        genes_str = '\n'.join(gene_list)
-        description = Path(in_path).stem           
+        genes_str = "\n".join(gene_list)
+        description = Path(in_path).stem
 
-        payload = {
-          'list': (None, genes_str),
-          'description': (None, description)
-        }
+        payload = {"list": (None, genes_str), "description": (None, description)}
         response = requests.post(ENRICHR_POST, files=payload)
 
         if not response.ok:
-            raise Exception('Error analyzing gene list')
+            raise Exception("Error analyzing gene list")
 
         job_id = json.loads(response.text)
 
         # Getting the functional set from EnrichR
-        query_string = '?userListId=%s&filename=%s&backgroundType=%s'
-        user_list_id = str(job_id['userListId'])
+        query_string = "?userListId=%s&filename=%s&backgroundType=%s"
+        user_list_id = str(job_id["userListId"])
         url = ENRICHR_GET + query_string % (user_list_id, out_path, enrichr_library)
 
         response = requests.get(url, stream=True).text
 
         # Concatenating the result for the current group to others
-        out_df = pd.concat([
-            out_df,
-            pd.read_csv(StringIO(response), sep='\t').assign(**{group_col: group})
-        ])
+        out_df = pd.concat(
+            [
+                out_df,
+                pd.read_csv(StringIO(response), sep="\t").assign(**{group_col: group}),
+            ]
+        )
 
     # Saving the results to .tsv file
-    save_to = os.path.splitext(out_path)[0] + '.tsv'
-    out_df.to_csv(save_to, index=False, sep='\t')
+    save_to = os.path.splitext(out_path)[0] + ".tsv"
+    out_df.to_csv(save_to, index=False, sep="\t")
 
-    print(f'\nSuccess! Saved at {save_to}')
+    print(f"\nSuccess! Saved at {save_to}")
 
     return out_df
