@@ -22,8 +22,6 @@ print(full_meta.shape)
 print(full_meta.columns)
 ```
 
-::: {.table-responsive}
-
 | id   | group   | file                                                                                                                           |   num_cells |   Macrophage |   T_cells |   DC |   Pre-B_cell_CD34- |   Monocyte |   NK_cell |   B_cell |   Epithelial_cells |   BM |   Pro-B_cell_CD34+ |   HSC_-G-CSF |   CMP |   Neutrophils |   GMP |   Erythroblast |   Gametocytes |   Neurons |   Fibroblasts |   Smooth_muscle_cells |   Hepatocytes |   Keratinocytes |   Pro-Myelocyte |
 |:-----|:--------|:-------------------------------------------------------------------------------------------------------------------------------|------------:|-------------:|----------:|-----:|-------------------:|-----------:|----------:|---------:|-------------------:|-----:|-------------------:|-------------:|------:|--------------:|------:|---------------:|--------------:|----------:|--------------:|----------------------:|--------------:|----------------:|----------------:|
 | C51  | C       | /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/GSE145926_RAW/GSM4475048_C51_filtered_feature_bc_matrix.h5  |        9431 |         8348 |       608 |  215 |                 98 |         70 |        68 |        9 |                  7 |    4 |                  3 |            1 |   nan |           nan |   nan |            nan |           nan |       nan |           nan |                   nan |           nan |             nan |             nan |
@@ -38,7 +36,5 @@ print(full_meta.columns)
 | C148 | S       | /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/GSE145926_RAW/GSM4475051_C148_filtered_feature_bc_matrix.h5 |        1165 |           98 |       122 |   24 |                nan |        641 |        36 |        8 |                 52 |  nan |                  1 |          nan |     3 |           178 |     1 |            nan |             1 |       nan |           nan |                   nan |           nan |             nan |             nan |
 | C149 | S       | /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/GSE145926_RAW/GSM4475052_C149_filtered_feature_bc_matrix.h5 |        1936 |          176 |       681 |   80 |                  1 |        691 |        59 |       38 |                 41 |  nan |                nan |            5 |   nan |           164 |   nan |            nan |           nan |       nan |           nan |                   nan |           nan |             nan |             nan |
 | C152 | S       | /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/GSE145926_RAW/GSM4475053_C152_filtered_feature_bc_matrix.h5 |        2557 |          466 |       397 |   41 |                176 |        795 |        74 |      317 |                201 |    6 |                 40 |          nan |   nan |            30 |    13 |            nan |           nan |       nan |           nan |                   nan |           nan |             nan |               1 |
-
-:::
 
 The user should run the [`network_inference`](../scGRN/network_inference/) pipeline to obtain the GRN graphs stored in `pickle` format.
