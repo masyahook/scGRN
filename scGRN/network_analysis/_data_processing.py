@@ -52,7 +52,7 @@ def get_avail_sc_data(
     :param data_home: The filepath to the data home folder
     :param meta_file: The filepath to metadata about patients
 
-    :return: Boolean-value dataframe indicating the [presence (True) / absence of file due to failed 
+    :return: Boolean-value dataframe indicating the [presence (True) / absence of file due to failed
         computation (False) / absence of data (NaN)] for the corresponding scRNA-seq matrix data
     """
 
@@ -77,10 +77,8 @@ def get_avail_sc_data(
         for d in ["all_data"] + full_meta.loc[pat][3:].dropna().index.to_list():
             d_fn = f"raw_data_{d}" if d != "all_data" else "raw_data"
             fn = os.path.join(data_home, pat, "data", "Seurat", f"{d_fn}.tsv")
-            if is_non_empty(fn):
-                avail_sc_data.loc[pat, d] = True
-            else:
-                avail_sc_data.loc[pat, d] = False
+
+            avail_sc_data.loc[pat, d] = float(is_non_empty(fn))
 
     # Checking the presence of cell type aggregated data files: 'all_data', 'C', 'M', 'S'
     for pat in avail_sc_data.index[:4]:
@@ -96,15 +94,17 @@ def get_avail_sc_data(
             fn = os.path.join(
                 data_home, "cell_types", d, "data", "Seurat", f"{d_fn}.tsv"
             )
-            if is_non_empty(fn):
-                avail_sc_data.loc[pat, d] = True
-            else:
-                avail_sc_data.loc[pat, d] = False
+            avail_sc_data.loc[pat, d] = float(is_non_empty(fn))
 
     return avail_sc_data
 
 
-def get_avail_pat_sc(pat: str, as_data_fn: bool = True) -> list:
+def get_avail_pat_sc(
+    pat: str,
+    as_data_fn: bool = True,
+    data_home: str = _DATA_HOME,
+    meta_file: str = _META_FILE,
+) -> list:
     """
     Get a list of available scRNA-seq datasets corresponding to `pat`.
 
@@ -114,11 +114,13 @@ def get_avail_pat_sc(pat: str, as_data_fn: bool = True) -> list:
     :param as_data_fn: Return list of data file names or just cell type names:
         True - ['raw_data', 'raw_data_Macrophage', 'raw_data_T_cells', ... ]
         False - ['all_data', 'Macrophage', 'T_cells', ... ]
+    :param data_home: The filepath to the data home folder
+    :param meta_file: The filepath to metadata about patients
 
     :return: A list of available data files corresponding to `net_type` and `pat`
     """
 
-    avail_sc = get_avail_sc_data()
+    avail_sc = get_avail_sc_data(data_home=data_home, meta_file=meta_file).astype(bool)
     cell_types = avail_sc.loc[pat].dropna().loc[lambda x: x].index
     if as_data_fn:
         return cell_types.map(
@@ -148,7 +150,7 @@ def get_avail_adj_lists(
             'TF': pd.DataFrame,  # TF-target GRN adjacency list availability
             'ctx': pd.DataFrame  # enriched TF-target GRN adjacency list availability
         }
-        Each dataframe has boolean values indicating the [presence (True) / absence of file due to 
+        Each dataframe has boolean values indicating the [presence (True) / absence of file due to
             failed computation (False) / absence of data (NaN)] for each GRN adjacency list
     """
 
@@ -156,7 +158,9 @@ def get_avail_adj_lists(
     filtered_suffix = str(filtered).replace(".", "_")
 
     # Getting info about available scRNA-seq data
-    avail_sc_data = get_avail_sc_data(data_home, meta_file)
+    avail_sc_data = get_avail_sc_data(data_home=data_home, meta_file=meta_file).astype(
+        bool
+    )
 
     avail_adj_lists = dict(
         zip(
@@ -170,9 +174,12 @@ def get_avail_adj_lists(
     )
 
     for net_type, data in avail_adj_lists.items():
-        net_type_suffix = (
-            "cor" if net_type == "all" else "TF_cor" if net_type == "TF" else "TF_ctx"
-        )
+        if net_type == "all":
+            net_type_suffix = "cor"
+        elif net_type == "TF":
+            net_type_suffix = "TF_cor"
+        else:
+            net_type_suffix = "TF_ctx"
 
         # Checking the presence of patient data files: e.g. 'C141', 'C51', 'C152'
         for pat in data.index[4:]:
@@ -197,14 +204,11 @@ def get_avail_adj_lists(
                     "pickle",
                     f"{d_fn}_{net_type_suffix}_filtered_{filtered_suffix}.pickle",
                 )
-                if (
+                data.loc[pat, d] = float(
                     is_non_empty(fn)
                     and is_non_empty(fn_pickled)
                     and is_non_empty(filtered_fn_pickled)
-                ):
-                    data.loc[pat, d] = True
-                else:
-                    data.loc[pat, d] = False
+                )
 
         # Checking the presence of cell type aggregated data files: 'all_data', 'C', 'M', 'S'
         for pat in data.index[:4]:
@@ -236,14 +240,11 @@ def get_avail_adj_lists(
                     "pickle",
                     f"{d_fn}_{net_type_suffix}_filtered_{filtered_suffix}.pickle",
                 )
-                if (
+                data.loc[pat, d] = float(
                     is_non_empty(fn)
                     and is_non_empty(fn_pickled)
                     and is_non_empty(filtered_fn_pickled)
-                ):
-                    data.loc[pat, d] = True
-                else:
-                    data.loc[pat, d] = False
+                )
 
     return avail_adj_lists
 
@@ -268,7 +269,7 @@ def get_avail_nx_graphs(
             'TF': pd.DataFrame,  # TF-target GRN NetworkX graph availability
             'ctx': pd.DataFrame  # enriched TF-target NetworkX graph availability
         }
-        Each dataframe has boolean values indicating the [presence (True) / absence of file due to 
+        Each dataframe has boolean values indicating the [presence (True) / absence of file due to
             failed computation (False) / absence of data (NaN)] for each GRN NetworkX graph
     """
 
@@ -276,7 +277,9 @@ def get_avail_nx_graphs(
     filtered_suffix = str(filtered).replace(".", "_")
 
     # Getting info about available scRNA-seq data
-    avail_sc_data = get_avail_sc_data(data_home, meta_file)
+    avail_sc_data = get_avail_sc_data(data_home=data_home, meta_file=meta_file).astype(
+        bool
+    )
 
     avail_nx_graphs = dict(
         zip(
@@ -290,9 +293,12 @@ def get_avail_nx_graphs(
     )
 
     for net_type, data in avail_nx_graphs.items():
-        net_type_suffix = (
-            "cor" if net_type == "all" else "TF_cor" if net_type == "TF" else "TF_ctx"
-        )
+        if net_type == "all":
+            net_type_suffix = "cor"
+        elif net_type == "TF":
+            net_type_suffix = "TF_cor"
+        else:
+            net_type_suffix = "TF_ctx"
 
         # Checking the presence of patient data files: e.g. 'C141', 'C51', 'C152'
         for pat in data.index[4:]:
@@ -314,10 +320,7 @@ def get_avail_nx_graphs(
                     "nx_graph",
                     f"{d_fn}_{net_type_suffix}_filtered_{filtered_suffix}.gpickle",
                 )
-                if is_non_empty(fn) and is_non_empty(fn_filtered):
-                    data.loc[pat, d] = True
-                else:
-                    data.loc[pat, d] = False
+                data.loc[pat, d] = float(is_non_empty(fn) and is_non_empty(fn_filtered))
 
         # Checking the presence of cell type aggregated data files: 'all_data', 'C', 'M', 'S'
         for pat in data.index[:4]:
@@ -341,15 +344,18 @@ def get_avail_nx_graphs(
                     "nx_graph",
                     f"{d_fn}_{net_type_suffix}_filtered_{filtered_suffix}.gpickle",
                 )
-                if is_non_empty(fn) and is_non_empty(fn_filtered):
-                    data.loc[pat, d] = True
-                else:
-                    data.loc[pat, d] = False
+                data.loc[pat, d] = float(is_non_empty(fn) and is_non_empty(fn_filtered))
 
     return avail_nx_graphs
 
 
-def get_avail_pat_nx(net_type: str, pat: str, as_data_fn: bool = True) -> list:
+def get_avail_pat_nx(
+    net_type: str,
+    pat: str,
+    as_data_fn: bool = True,
+    data_home: str = _DATA_HOME,
+    meta_file: str = _META_FILE,
+) -> list:
     """
     Get a list of available GRN NetworkX graphs corresponding to `net_type` and `pat`.
 
@@ -363,18 +369,25 @@ def get_avail_pat_nx(net_type: str, pat: str, as_data_fn: bool = True) -> list:
     :param as_data_fn: Return list of data file names or just cell type names:
         True - ['raw_data', 'raw_data_Macrophage', 'raw_data_T_cells', ... ]
         False - ['all_data', 'Macrophage', 'T_cells', ... ]
+    :param data_home: The filepath to the data home folder
+    :param meta_file: The filepath to metadata about patients
 
     :return: A list of available data files corresponding to `net_type` and `pat`
     """
 
-    avail_Gs = get_avail_nx_graphs()
+    avail_Gs = {
+        k: v.astype(bool)
+        for k, v in get_avail_nx_graphs(
+            data_home=data_home, meta_file=meta_file
+        ).items()
+    }
     cell_types = avail_Gs[net_type].loc[pat].dropna().loc[lambda x: x].index
     if as_data_fn:
         return cell_types.map(
             lambda x: f"raw_data_{x}" if x != "all_data" else "raw_data"
         ).to_list()
-    else:
-        return cell_types.to_list()
+
+    return cell_types.to_list()
 
 
 def get_sc_data(
@@ -389,15 +402,15 @@ def get_sc_data(
     :param cell_type: The cell type name of the data - could be either:
         e.g. 'Macrophage', 'T_cells' (the cell type identifier)
         e.g. 'all', 'all_data' (the aggregated data - include all cell types)
-        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e.
             'raw_data_T_cells' corresponds to the same data as 'T_cells')
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient 
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient
             data)
     :param data_home: The filepath to the data home folder
-    :param tolerate_missing: True if tolerate missing data file (and output None in this case), 
+    :param tolerate_missing: True if tolerate missing data file (and output None in this case),
         False otherwise
 
     :return Pandas dataframe of corresponding VIPER score matrix
@@ -412,7 +425,7 @@ def get_sc_data(
             else cell_type.replace("raw_data_", "")
         )
 
-        fn = os.path.join(data_home, data_folder, cell_type, "Seurat", f"raw_data.tsv")
+        fn = os.path.join(data_home, data_folder, cell_type, "Seurat", "raw_data.tsv")
 
     # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
     elif pat in ["C", "M", "S"]:
@@ -445,7 +458,7 @@ def get_sc_data(
     try:
         data = pd.read_csv(fn, sep="\t")
         return data
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
         if tolerate_missing:
             warnings.warn(
                 f'The single-cell data not found for pat="{pat}", cell_type="{cell_type}" '
@@ -456,7 +469,7 @@ def get_sc_data(
             raise FileNotFoundError(
                 f'The single-cell data not found for pat="{pat}", cell_type="{cell_type}" '
                 f'(should be at "{fn}")..'
-            )
+            ) from exc
 
 
 def get_num_cells(pat: str, cell_type: str, meta: pd.DataFrame) -> int:
@@ -465,14 +478,14 @@ def get_num_cells(pat: str, cell_type: str, meta: pd.DataFrame) -> int:
     :param cell_type: The cell type name of the data - could be either:
         e.g. 'Macrophage', 'T_cells' (the cell type identifier)
         e.g. 'all', 'all_data' (the aggregated data - include all cell types)
-        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e.
             'raw_data_T_cells' corresponds to the same data as 'T_cells')
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient 
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient
             data)
-    :param meta: The dataframe containing metadata about patients (cell count, patient types, file 
+    :param meta: The dataframe containing metadata about patients (cell count, patient types, file
         paths)
     :return: The number of cells
     """
@@ -482,7 +495,7 @@ def get_num_cells(pat: str, cell_type: str, meta: pd.DataFrame) -> int:
         curr_meta = meta[meta["group"] == pat]
     else:
         curr_meta = meta.loc[pat]
-    if cell_type in ['all', 'all_data', 'raw_data']:
+    if cell_type in ["all", "all_data", "raw_data"]:
         col_key = "num_cells"
     else:
         col_key = cell_type.replace("raw_data_", "")
@@ -506,17 +519,17 @@ def get_viper_mat(
     :param cell_type: The cell type name of the data - could be either:
         e.g. 'Macrophage', 'T_cells' (the cell type identifier)
         e.g. 'all', 'all_data' (the aggregated data - include all cell types)
-        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e.
             'raw_data_T_cells' corresponds to the same data as 'T_cells')
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient 
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient
             data)
-    :param regulon: The regulon type, could be either 'pyscenic' (inferred by `pyscenic`) or 
+    :param regulon: The regulon type, could be either 'pyscenic' (inferred by `pyscenic`) or
         'dorothea' (obtained from `DoRothEA` database)
     :param data_home: The filepath to the data home folder
-    :param tolerate_missing: True if tolerate missing data file (and output None in this case), 
+    :param tolerate_missing: True if tolerate missing data file (and output None in this case),
         False otherwise
 
     :return Pandas dataframe of corresponding VIPER score matrix
@@ -586,7 +599,7 @@ def get_viper_mat(
     try:
         mat = pd.read_pickle(fn)
         return mat
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
         if tolerate_missing:
             warnings.warn(
                 f'The VIPER matrix not found for pat="{pat}", cell_type="{cell_type}" '
@@ -597,7 +610,7 @@ def get_viper_mat(
             raise FileNotFoundError(
                 f'The VIPER matrix not found for pat="{pat}", cell_type="{cell_type}" '
                 f'(should be at "{fn}")..'
-            )
+            ) from exc
 
 
 def get_adj_list(
@@ -615,7 +628,7 @@ def get_adj_list(
     :param cell_type: The cell type name of the data - could be either:
         e.g. 'Macrophage', 'T_cells' (the cell type identifier)
         e.g. 'all', 'all_data' (the aggregated data - include all cell types)
-        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e. 
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, i.e.
             'raw_data_T_cells' corresponds to the same data as 'T_cells')
     :param net_type: The type of data - could be either:
         'all' (all gene-gene connections)
@@ -624,21 +637,25 @@ def get_adj_list(
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient 
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient
             data)
     :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
     :param filtered: The quantile threshold
     :param data_home: The filepath to the data home folder
-    :param tolerate_missing: True if tolerate missing data file (and output None in this case), 
+    :param tolerate_missing: True if tolerate missing data file (and output None in this case),
         False otherwise
 
     :return Pandas dataframe which represents GRN adjacency list
     """
 
     # Formatting input params for accessing the correct file
-    net_suffix = (
-        "TF_cor" if net_type == "TF" else "TF_ctx" if net_type == "ctx" else "cor"
-    )
+    if net_type == "TF":
+        net_suffix = "TF_cor"
+    elif net_type == "ctx":
+        net_suffix = "TF_ctx"
+    else:
+        net_suffix = "cor"
+
     filter_suffix = (
         f"_filtered_{str(filtered).replace('.', '_')}" if filtered is not None else ""
     )
@@ -704,18 +721,17 @@ def get_adj_list(
     try:
         adj_list = pd.read_pickle(fn)
         return adj_list
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
         if tolerate_missing:
             warnings.warn(
                 f'The GRN for pat="{pat}", cell_type="{cell_type}", net_type="{net_type}" is not found '
                 f'(should be at "{fn}"). Returning as `None` instead!'
             )
             return None
-        else:
-            raise FileNotFoundError(
-                f"The GRN for pat={pat}, cell_type={cell_type}, net_type={net_type} is not found "
-                f'(should be at "{fn}")..'
-            )
+        raise FileNotFoundError(
+            f"The GRN for pat={pat}, cell_type={cell_type}, net_type={net_type} is not found "
+            f'(should be at "{fn}")..'
+        ) from exc
 
 
 def get_nx_graph(
@@ -733,7 +749,7 @@ def get_nx_graph(
     :param cell_type: The cell type name of the data - could be either:
         e.g. 'Macrophage', 'T_cells' (the cell type identifier)
         e.g. 'all', 'all_data' (the aggregated data - include all cell types)
-        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, e.g. 
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, e.g.
             'raw_data_T_cells'
             corresponds to the same data as 'T_cells')
     :param net_type: The type of data - could be either:
@@ -743,21 +759,25 @@ def get_nx_graph(
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient 
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient
             data)
     :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
     :param filtered: The quantile threshold
     :param data_home: The filepath to the data home folder
-    :param tolerate_missing: True if tolerate missing data file (and output None in this case), 
+    :param tolerate_missing: True if tolerate missing data file (and output None in this case),
         False otherwise
 
     :return NetworkX object of the corresponding GRN
     """
 
     # Formatting input params for accessing the correct file
-    net_suffix = (
-        "TF_cor" if net_type == "TF" else "TF_ctx" if net_type == "ctx" else "cor"
-    )
+    if net_type == "TF":
+        net_suffix = "TF_cor"
+    elif net_type == "ctx":
+        net_suffix = "TF_ctx"
+    else:
+        net_suffix = "cor"
+
     filter_suffix = (
         f"_filtered_{str(filtered).replace('.', '_')}" if filtered is not None else ""
     )
@@ -824,18 +844,17 @@ def get_nx_graph(
     try:
         G = nx.read_gpickle(fn)
         return G
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
         if tolerate_missing:
             warnings.warn(
                 f'The GRN for pat="{pat}", cell_type="{cell_type}", net_type="{net_type}" is not found '
                 f'(should be at "{fn}"). Returning as `None` instead!'
             )
             return None
-        else:
-            raise FileNotFoundError(
-                f"The GRN for pat={pat}, cell_type={cell_type}, net_type={net_type} is not found "
-                f'(should be at "{fn}")..'
-            )
+        raise FileNotFoundError(
+            f"The GRN for pat={pat}, cell_type={cell_type}, net_type={net_type} is not found "
+            f'(should be at "{fn}")..'
+        ) from exc
 
 
 def get_community_info(
@@ -852,7 +871,7 @@ def get_community_info(
     :param cell_type: The cell type name of the data - could be either:
         e.g. 'Macrophage', 'T_cells' (the cell type identifier)
         e.g. 'all', 'all_data' (the aggregated data - include all cell types)
-        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, e.g. 
+        e.g. 'raw_data_Macrophage', 'raw_data_T_cells', 'raw_data' (the data file identifier, e.g.
             'raw_data_T_cells' corresponds to the same data as 'T_cells')
     :param net_type: The type of data - could be either:
         'all' (all gene-gene connections)
@@ -861,12 +880,12 @@ def get_community_info(
     :param pat: The patient identifier - could be either:
         e.g. None (include all patients)
         e.g. 'C51', 'C141' (the patient identifier)
-        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient 
+        e.g. 'C', 'M', 'S', 'all_patients', 'all_data', 'all' (the identifier of aggregated patient
             data)
     :param method: The GRN inference method, could be either 'genie3' or 'grnboost2'
     :param algo: The community detection algorithm used
     :param data_home: The filepath to the data home folder
-    :param tolerate_missing: True if tolerate missing data file (and output None in this case), 
+    :param tolerate_missing: True if tolerate missing data file (and output None in this case),
         False otherwise
 
     :returns: A dataframe with all information about communities in queried graph network. The
@@ -935,7 +954,7 @@ def get_community_info(
     try:
         df = pd.read_pickle(fn)
         return df
-    except FileNotFoundError:
+    except FileNotFoundError as exc:
         if tolerate_missing:
             warnings.warn(
                 f'The community info df for pat="{pat}", cell_type="{cell_type}" is not found '
@@ -946,7 +965,7 @@ def get_community_info(
             raise FileNotFoundError(
                 f"The community info df for pat={pat}, cell_type={cell_type} is not found "
                 f'(should be at "{fn}")..'
-            )
+            ) from exc
 
 
 def _compute_graph_stats(
