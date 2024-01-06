@@ -413,7 +413,7 @@ def get_sc_data(
     :param tolerate_missing: True if tolerate missing data file (and output None in this case),
         False otherwise
 
-    :return Pandas dataframe of corresponding VIPER score matrix
+    :return Pandas dataframe of corresponding scRNA-sequencing matrix
     """
 
     # Loading data that includes all patients
