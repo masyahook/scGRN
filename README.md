@@ -39,11 +39,11 @@ The source code is available in the [`scGRN`](https://github.com/masyahook/scGRN
 
 ### Script-based modules
 
-The work is heavily based on the [Marenostrum](https://www.bsc.es/marenostrum/marenostrum) supercomputer, thus the code is optimized for working in the HPC environment (i.e. [Slurm](https://slurm.schedmd.com)). The [`single_cell_processing`](scGRN/single_cell_processing/) pipeline is implemented in R, while [`network_inference`](scGRN/network_inference/) and [`network_analysis`](scGRN/network_analysis/) are implemented in Python. Both pipelines are wrapped in bash scripts for easy execution. Some scripts are tailored to the Marenostrum file system (file names conventions, Slurm-based workload commands), but could be easily adapted to other HPC environments. The community analysis provided in [`network_analysis`](scGRN/network_analysis/) could be also run at scale using Slurm manager. You can see the examples of the `sbatch` and [`greasy`](https://www.bsc.es/marenostrum/marenostrum/available-software/greasy) commands in the [`notebooks/Generate_sbatch_commands.ipynb`](notebooks/Generate_sbatch_commands.ipynb) notebook. For more details of the pipeline usage, please look in the corresponding `README.md` files in the submodules.
+The work is heavily based on the [Marenostrum](https://www.bsc.es/marenostrum/marenostrum) supercomputer, thus the code is optimized for working in the HPC environment (i.e. [Slurm](https://slurm.schedmd.com)). The [`single_cell_processing`](scGRN/single_cell_processing/) pipeline is implemented in R, while [`network_inference`](scGRN/network_inference/) and [`network_analysis`](scGRN/network_analysis/) are implemented in Python. Both pipelines are wrapped in bash scripts for easy execution. Some scripts are tailored to the Marenostrum file system (file names conventions, Slurm-based workload commands), but could be easily adapted to other HPC environments. The community analysis provided in [`network_analysis`](scGRN/network_analysis/) could be also run at scale using Slurm manager. You can see the examples of the [`sbatch`](https://slurm.schedmd.com/sbatch.html) and [`greasy`](https://www.bsc.es/marenostrum/marenostrum/available-software/greasy) commands in the [`notebooks/Generate_sbatch_commands.ipynb`](notebooks/Generate_sbatch_commands.ipynb) notebook. For more details of the pipeline usage, please look in the corresponding `README.md` files in the submodules.
 
 ### Jupyter-based modules
 
-The `network_analysis` pipeline is implemented as a Python package that the user can use to analyze the inferred networks. It includes utilities for I/O operations, graph analysis, data aggregation and visualization. As an example, to read the patient sample metadata:
+The [`network_analysis`](scGRN/network_analysis/) pipeline is implemented as a Python package that the user can use to analyze the inferred networks. It includes utilities for I/O operations, graph analysis, data aggregation and visualization. As an example, to read the patient sample metadata:
 
 ```python
 import scGRN
@@ -96,6 +96,16 @@ Output:
 | C148 | S       | /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/GSE145926_RAW/GSM4475051_C148_filtered_feature_bc_matrix.h5 |        1165 |           98 |       122 |   24 |                nan |        641 |        36 |        8 |                 52 |  nan |                  1 |          nan |     3 |           178 |     1 |            nan |             1 |       nan |           nan |                   nan |           nan |             nan |             nan |
 | C149 | S       | /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/GSE145926_RAW/GSM4475052_C149_filtered_feature_bc_matrix.h5 |        1936 |          176 |       681 |   80 |                  1 |        691 |        59 |       38 |                 41 |  nan |                nan |            5 |   nan |           164 |   nan |            nan |           nan |       nan |           nan |                   nan |           nan |             nan |             nan |
 | C152 | S       | /gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/data/GSE145926_RAW/GSM4475053_C152_filtered_feature_bc_matrix.h5 |        2557 |          466 |       397 |   41 |                176 |        795 |        74 |      317 |                201 |    6 |                 40 |          nan |   nan |            30 |    13 |            nan |           nan |       nan |           nan |                   nan |           nan |             nan |               1 |
+
+You can also visualize the cell count for different patients and cell types using various visualization utilities:
+
+```python
+scGRN.ana.plot_avail_cell_types(
+    save_as="EDA_cell_type_dist.pdf"
+)
+```
+
+![Cell count distribution among patients and cell types](docs/EDA_cell_type_dist.png)
 
 For more examples of use look into [`examples`](examples/) and [`notebooks`](notebooks/).
 

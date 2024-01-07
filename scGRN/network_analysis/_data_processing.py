@@ -475,6 +475,7 @@ def get_sc_data(
 def get_num_cells(pat: str, cell_type: str, meta: pd.DataFrame) -> int:
     """
     Get number of cells present in the corresponding scRNA-seq dataset.
+    
     :param cell_type: The cell type name of the data - could be either:
         e.g. 'Macrophage', 'T_cells' (the cell type identifier)
         e.g. 'all', 'all_data' (the aggregated data - include all cell types)
@@ -1086,7 +1087,7 @@ def get_graph_stats(meta: pd.DataFrame, n_jobs: int, filtered: float = None) -> 
         "tfs",
         "num_tfs",
     ]
-    num_all_sets = get_avail_nx_graphs()["all"].sum().sum()
+    num_all_sets = int(get_avail_nx_graphs()["all"].sum().sum())
 
     # Computing statistics in parallel
     all_out = Parallel(n_jobs=n_jobs)(
