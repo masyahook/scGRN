@@ -6,8 +6,12 @@ from typing import Union
 import pandas as pd
 from tqdm import tqdm as tqdm_cli
 
+from ..config import _INPUT_DATA_HOME
 
-def load_gene_func_db_mapping() -> dict:
+
+def load_gene_func_db_mapping(
+    path_to_dbs: str = f"{_INPUT_DATA_HOME}/Gene_func_associations",
+) -> dict:
     """
     Load downloaded gene function databases like MSigDB, GO, SIGNOR, etc mappings.
 
@@ -19,8 +23,6 @@ def load_gene_func_db_mapping() -> dict:
 
     return: The file paths to the local database files
     """
-
-    path_to_dbs = "/gpfs/projects/bsc08/bsc08890/data/Gene_func_associations"
 
     file_mapping = {
         "GO": os.path.join(path_to_dbs, "GO_annotation.tsv"),
@@ -58,13 +60,13 @@ def load_gene_func_db(
     db: str, reload: bool = False, as_series: bool = False
 ) -> Union[pd.DataFrame, pd.Series]:
     """
-    Load data from gene function database like MSigDB, GO, DoRothEA, or etc. The output will be in a 
+    Load data from gene function database like MSigDB, GO, DoRothEA, or etc. The output will be in a
         Pandas Dataframe
     format.
 
     :param db: The db tag - either a short version, or long version
     :param reload: Only relevant for MSigDB - whether to reload the data from the web or not
-    :param as_series: Only relevant for MSigDB - return as pd.Series with index denoting gene names, 
+    :param as_series: Only relevant for MSigDB - return as pd.Series with index denoting gene names,
         and values denoting the functional annotation
 
     return: Function mapping of the gene set

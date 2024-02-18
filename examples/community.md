@@ -1,6 +1,8 @@
 # Community analysis
 
-In this example, we will dive into community analysis of the inferred gene regulatory networks. We will focus on `T_cells` cell type only. The community analysis is performed using [Leiden](https://leidenalg.readthedocs.io/en/stable/index.html) algorithm.
+In this example, we will dive into **community analysis** of the inferred gene regulatory networks. Communities, also called *clusters* or *modules*, are groups of vertices which can be easily grouped together (potentially overlapping) and/or are densely connected internally. In the gene-regulatory network the communities should represent groupings of genes according to their mutual function or molecular processes.
+
+In this document we will focus on `T_cells` cell type only for community analysis. The community detection is performed using [Leiden](https://leidenalg.readthedocs.io/en/stable/index.html) algorithm.
 
 ## Loading the graph
 
@@ -677,3 +679,11 @@ Community 11
 Community 12
 ['HOXA5 (score=0.0)', ' CIB2 (score=0.0)']
 ```
+
+## Wordcloud visualization
+
+The best way to depict the communities in gene-regulatory networks is to use [wordcloud](https://github.com/amueller/word_cloud) visualization on top of graph network. We implemented [`scGRN.network_analysis.plot_cloud()`](https://github.com/masyahook/scGRN/blob/99f1ba91303351cd9948016dfaea7ec78f35c30c/scGRN/network_analysis/_plotting.py#L648) function to simplify the process. For example:
+
+FIXME
+
+Please take a look at the [`GRNBoost2_Community_analysis.ipynb`](../notebooks/GRNBoost2_Community_analysis.ipynb) notebook for detailed examples of running community detection and visualizing the results. With wordcloud 

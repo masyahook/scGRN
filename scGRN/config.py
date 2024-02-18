@@ -5,7 +5,8 @@ from wordcloud import STOPWORDS
 # Path names to files
 _PROJ_HOME = "/gpfs/projects/bsc08/shared_projects/scGRN_analysis"
 _DATA_HOME = f"{_PROJ_HOME}/Data_home/res/covid_19"
-_META_FILE = f"{_PROJ_HOME}/Data_home/data/GSE145926_RAW/metadata.tsv"
+_INPUT_DATA_HOME = f"{_PROJ_HOME}/Data_home/data"
+_META_FILE = f"{_INPUT_DATA_HOME}/GSE145926_RAW/metadata.tsv"
 
 # General purpose constants
 # ggplot2 default colors
