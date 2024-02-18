@@ -425,7 +425,7 @@ def get_sc_data(
             else cell_type.replace("raw_data_", "")
         )
 
-        fn = os.path.join(data_home, data_folder, cell_type, "Seurat", "raw_data.tsv")
+        fn = os.path.join(data_home, data_folder, 'data', "Seurat", "raw_data.tsv")
 
     # Loading data that includes a specific patient type: 'control', 'moderate' or 'severe'
     elif pat in ["C", "M", "S"]:
@@ -437,7 +437,7 @@ def get_sc_data(
         )
 
         fn = os.path.join(
-            data_home, data_folder, cell_type, "Seurat", f"raw_data_{pat}_type.tsv"
+            data_home, data_folder, 'data', "Seurat", f"raw_data_{pat}_type.tsv"
         )
 
     # Loading patient-specific data

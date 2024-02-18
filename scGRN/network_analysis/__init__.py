@@ -1,6 +1,10 @@
 """Network analysis."""
 from ._auxiliary_data import load_gene_func_db, load_gene_func_db_mapping
-from ._community import netgraph_community_layout, squeeze_graph
+from ._community import (
+    netgraph_community_layout, 
+    squeeze_graph, 
+    process_communities
+)
 from ._data_processing import (get_adj_list, get_avail_adj_lists,
                                get_avail_nx_graphs, get_avail_pat_nx,
                                get_avail_pat_sc, get_avail_sc_data,

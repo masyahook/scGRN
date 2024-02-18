@@ -389,6 +389,7 @@ def process_communities(
     other_functions_until: int = 20,
     save_top_new_found_cluster_links: int = 20,
     seed: int = 42,
+    data_home: str = _DATA_HOME,
 ):
     """
         Find communities in the passed graph, annotate them by identifying general community properties
@@ -458,6 +459,7 @@ def process_communities(
         :param other_functions_until: Number of other functional terms to save (not included in the main ones)
         :param save_top_new_found_cluster_links: Number of inter-functional connections between genes to save
         :param seed: A random seed
+        :param data_home: The path to the data folder
     """
 
     def _highlight_TFs(word, font_size, position, orientation, font_path, random_state):
@@ -726,10 +728,10 @@ def process_communities(
         )
 
         figs_as = os.path.join(
-            _DATA_HOME, "cell_types", data_folder, "figs", "grnboost2", "raw_data"
+            data_home, "cell_types", data_folder, "figs", "grnboost2", "raw_data"
         )
         data_to = os.path.join(
-            _DATA_HOME,
+            data_home,
             "cell_types",
             data_folder,
             "data",
@@ -747,7 +749,7 @@ def process_communities(
         )
 
         figs_as = os.path.join(
-            _DATA_HOME,
+            data_home,
             "cell_types",
             data_folder,
             "figs",
@@ -778,10 +780,10 @@ def process_communities(
                 tag = cell_type
 
         # Loading patient-specific data
-        figs_as = os.path.join(_DATA_HOME, pat, "figs", "grnboost2", f"{tag}")
+        figs_as = os.path.join(data_home, pat, "figs", "grnboost2", f"{tag}")
 
         data_to = os.path.join(
-            _DATA_HOME, pat, "data", "grnboost2", f"{algo}_communities"
+            data_home, pat, "data", "grnboost2", f"{algo}_communities"
         )
         data_as = os.path.join(data_to, f"{tag}_communities_info.pickle")
 
