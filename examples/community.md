@@ -54,7 +54,7 @@ An example of running `community_ana.py` script is as follows:
 export PYTHONPATH="<PATH_TO_scGRN>:$PYTHONPATH"
 
 # Running for T cells on all patients
-python scGRN.network_analysis.community_ana.py --cell_type T_cells --patient all
+python -m scGRN.network_analysis.community_ana.py --cell_type T_cells --patient all
 ```
 
 Also we wrote specific wrapper scripts to run community detection and processing on a cluster which are located in [`community_scripts`](../scGRN/network_analysis/community_scripts). The script [`run_community_ana_pat.sh`](../scGRN/network_analysis/community_scripts/run_community_ana_pat.sh) can be used to run community detection on patient-specific data, while [`run_community_ana_agg.sh`](../scGRN/network_analysis/community_scripts/run_community_ana_agg.sh) is used to run community analysis on patient-aggregated data. Below you can see the example of running the script with `sbatch` command:
@@ -576,7 +576,7 @@ for community_id, community_row in comm_info.head(FIRST).iterrows():
     print()
 ```
 
- ```
+```python
  Community 0 has the following top 5 GO terms:
 >>> MAPK signaling pathway <<<: JUN,MEF2C,GADD45B,MAP3K20,RRAS2,MAP3K1,MAP3K3,MAP3K4,CHP2,MYC,FLNC,TRAF6,TGFB2,DUSP1,DUSP2,DUSP6,PLA2G12A,DUSP10,FGF5,MAPK10,RASGRP2,PLA2G4A,MECOM,MAPK13,MAP2K7,MAP2K5,RASGRF2,MAPK8IP3,MAP3K12,FGFR1,FGF17,FGF18,CACNA1I,FOS,TAOK2,RPS6KA6,PLA2G10,MAP4K4,BRAF,MAP3K11,AKT3,GADD45G,MAPKAPK5,GNA12,GADD45A,MAP3K14,CRK,MAP3K13,CACNB2,SOS2,CACNB3,TNF,MKNK1,PRKCG,RAPGEF2,CACNA1A,CACNA1D,CACNA1F,PPM1A,MAPK7,MAP4K2,MAPK8,MRAS,NR4A1,NTRK2,NTRK1,CHP1
  >>> Primary immunodeficiency <<<: RFXAP,IL7R,CD40LG,AICDA,BTK,RAG1,CD79A,IGLL1,CIITA
