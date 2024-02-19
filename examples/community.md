@@ -46,6 +46,7 @@ print('Number of cells:', sc_data.shape[0])
 ```
 
 ## Community detection
+
 ### Running community detection
 
 The user can run community detection and processing using the [`scGRN.ana.process_community()`](https://github.com/masyahook/scGRN/blob/c86b1219bdb0df6b415d73fb2ff0f0cd4ebf4a1c/scGRN/network_analysis/_community.py#L380) function. This function could take a few minutes/hours to run depending on the size of the graph, so it's recommended to use a script [`community_ana.py`](../scGRN/network_analysis/community_ana.py) to run it on a cluster (also look into [`community_scripts`](../scGRN/network_analysis/community_scripts)). The script will produce a `.pickle` file with the results of community detection and processing.
@@ -62,7 +63,16 @@ python -m scGRN.network_analysis.community_ana --cell_type T_cells --patient all
 Also we wrote specific wrapper scripts to run community detection and processing on a cluster which are located in [`community_scripts`](../scGRN/network_analysis/community_scripts). The script [`run_community_ana_pat.sh`](../scGRN/network_analysis/community_scripts/run_community_ana_pat.sh) can be used to run community detection on patient-specific data, while [`run_community_ana_agg.sh`](../scGRN/network_analysis/community_scripts/run_community_ana_agg.sh) is used to run community analysis on patient-aggregated data. Below you can see the example of running the script with `sbatch` command:
 
 ```bash
-sbatch --job-name='T_cells_all_patients_community_ana_leiden' --chdir=/gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/community_scripts --ntasks=1 --time='2:00:00' --output=/dev/null --error=/dev/null --cpus-per-task=24 --qos=debug /gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/community_scripts/community_ana_agg.sh leiden T_cells all_patients SBATCH 13
+sbatch --job-name='T_cells_all_patients_community_ana_leiden' \
+    --chdir=/gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/community_scripts \
+    --ntasks=1 \
+    --time='2:00:00' \
+    --output=/dev/null \
+    --error=/dev/null \
+    --cpus-per-task=24 \
+    --qos=debug \
+    /gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/community_scripts/community_ana_agg.sh \
+    leiden T_cells all_patients SBATCH 13
 ```
 
 All scripts will run the underlying [`scGRN.ana.process_community()`](https://github.com/masyahook/scGRN/blob/c86b1219bdb0df6b415d73fb2ff0f0cd4ebf4a1c/scGRN/network_analysis/_community.py#L380) function. Let us have a look at its signature and docstring:
@@ -686,4 +696,4 @@ The best way to depict the communities in gene-regulatory networks is to use [wo
 
 FIXME
 
-Please take a look at the [`GRNBoost2_Community_analysis.ipynb`](../notebooks/GRNBoost2_Community_analysis.ipynb) notebook for detailed examples of running community detection and visualizing the results. With wordcloud 
+Please take a look at the [`GRNBoost2_Community_analysis.ipynb`](../notebooks/GRNBoost2_Community_analysis.ipynb) notebook for detailed examples of running community detection and visualizing the results. With wordcloud
