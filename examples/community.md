@@ -56,7 +56,7 @@ An example of running `community_ana.py` script is as follows:
 export PYTHONPATH="<PATH_TO_scGRN>:$PYTHONPATH"
 
 # Running for T cells on all patients
-python -m scGRN.network_analysis.community_ana.py --cell_type T_cells --patient all
+python -m scGRN.network_analysis.community_ana --cell_type T_cells --patient all
 ```
 
 Also we wrote specific wrapper scripts to run community detection and processing on a cluster which are located in [`community_scripts`](../scGRN/network_analysis/community_scripts). The script [`run_community_ana_pat.sh`](../scGRN/network_analysis/community_scripts/run_community_ana_pat.sh) can be used to run community detection on patient-specific data, while [`run_community_ana_agg.sh`](../scGRN/network_analysis/community_scripts/run_community_ana_agg.sh) is used to run community analysis on patient-aggregated data. Below you can see the example of running the script with `sbatch` command:
