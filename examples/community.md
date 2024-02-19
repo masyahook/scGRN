@@ -66,11 +66,10 @@ Also we wrote specific wrapper scripts to run community detection and processing
 sbatch --job-name='T_cells_all_patients_community_ana_leiden' \
     --chdir=/gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/community_scripts \
     --ntasks=1 \
-    --time='2:00:00' \
+    --time='10:00:00' \
     --output=/dev/null \
     --error=/dev/null \
     --cpus-per-task=24 \
-    --qos=debug \
     /gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/community_scripts/community_ana_agg.sh \
     leiden T_cells all_patients SBATCH 13
 ```
