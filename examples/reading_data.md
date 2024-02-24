@@ -432,6 +432,6 @@ adj_list = scGRN.ana.get_adj_list(
 which raises warning:
 
 ```python
-/gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/_data_processing.py:727: UserWarning: The GRN for pat="C146", cell_type="Pre-B_cell_CD34-", net_type="all" is not found (should be at "/gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/res/covid_19/C146/data/grnboost2/pickle/raw_data_Pre-B_cell_CD34-_cor.pickle"). Returning as `None` instead!
+/gpfs/home/bsc08/shared_projects/scGRN_analysis/scGRN/network_analysis/_data_processing.py:727: UserWarning: The GRN for pat="C146", cell_type="Pre-B_cell_CD34-", net_type="all" is not found (should be at "/gpfs/projects/bsc08/shared_projects/scGRN_analysis/Data_home/res/covid_19/C146/data/grnboost2/pickle/raw_data_Pre-B_cell_CD34-_cor.pickle"). Returning as `None` instead!
   f'The GRN for pat="{pat}", cell_type="{cell_type}", net_type="{net_type}" is not found '
 ```

@@ -25,7 +25,7 @@ from tqdm import tqdm as tqdm_cli
 from tqdm.notebook import tqdm
 from wordcloud import WordCloud
 
-from ..config import _DATA_HOME, _PROJ_HOME, _STOPWORDS
+from ..config import _DATA_HOME, _PROJ_HOME, _STOPWORDS, _INPUT_DATA_HOME
 from ..utils import get_elipsis_mask, scale_int
 from ._auxiliary_data import load_gene_func_db
 from ._data_processing import get_nx_graph
@@ -758,7 +758,7 @@ def process_communities(
         )
 
         data_to = os.path.join(
-            _DATA_HOME,
+            data_home,
             "cell_types",
             data_folder,
             "data",
@@ -790,8 +790,8 @@ def process_communities(
     os.makedirs(data_to, exist_ok=True)
     os.makedirs(os.path.dirname(figs_as), exist_ok=True)
 
-    _TF_LIST_lambert = f"{_PROJ_HOME}/Data_home/data/TF_lists/lambert2018.txt"
-    _TF_LIST_dorothea = f"{_PROJ_HOME}/Data_home/data/TF_lists/dorothea_regulons.tsv"
+    _TF_LIST_lambert = f"{_INPUT_DATA_HOME}/TF_lists/lambert2018.txt"
+    _TF_LIST_dorothea = f"{_INPUT_DATA_HOME}/TF_lists/dorothea_regulons.tsv"
 
     # Loading lists of TFs from Lambert 2018 and DoRothEA
     # in the latter case we will keep only confident regulons

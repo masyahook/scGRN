@@ -64,13 +64,13 @@ Also we wrote specific wrapper scripts to run community detection and processing
 
 ```bash
 sbatch --job-name='T_cells_all_patients_community_ana_leiden' \
-    --chdir=/gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/community_scripts \
+    --chdir=/gpfs/home/bsc08/shared_projects/scGRN_analysis/scGRN/network_analysis/community_scripts \
     --ntasks=1 \
     --time='10:00:00' \
     --output=/dev/null \
     --error=/dev/null \
     --cpus-per-task=24 \
-    /gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/community_scripts/community_ana_agg.sh \
+    /gpfs/home/bsc08/shared_projects/scGRN_analysis/scGRN/network_analysis/community_scripts/community_ana_agg.sh \
     leiden T_cells all_patients SBATCH 13
 ```
 
@@ -166,7 +166,7 @@ Docstring:
     :param seed: A random seed
     :param data_home: The path to the data folder
 
-File:      /gpfs/home/bsc08/bsc08890/scGRN_analysis/scGRN/network_analysis/_community.py
+File:      /gpfs/home/bsc08/shared_projects/scGRN_analysis/scGRN/network_analysis/_community.py
 Type:      function
 ```
 
