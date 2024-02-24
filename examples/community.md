@@ -691,8 +691,121 @@ Community 12
 
 ## Wordcloud visualization
 
-The best way to depict the communities in gene-regulatory networks is to use [wordcloud](https://github.com/amueller/word_cloud) visualization on top of graph network. We implemented [`scGRN.network_analysis.plot_cloud()`](https://github.com/masyahook/scGRN/blob/99f1ba91303351cd9948016dfaea7ec78f35c30c/scGRN/network_analysis/_plotting.py#L648) function to simplify the process. For example:
+The best way to depict the communities in gene-regulatory networks is to use [wordcloud](https://github.com/amueller/word_cloud) visualization on top of graph network. We implemented [`scGRN.network_analysis.plot_cloud()`](https://github.com/masyahook/scGRN/blob/99f1ba91303351cd9948016dfaea7ec78f35c30c/scGRN/network_analysis/_plotting.py#L648) function to simplify the process. For example, we can visualize `KEGG` terms in the communities as follows:
 
-FIXME
+```python
+def get_central_genes_and_partition(comm_info):
+    """Get central genes and partition from community info."""
 
-Please take a look at the [`GRNBoost2_Community_analysis.ipynb`](../notebooks/GRNBoost2_Community_analysis.ipynb) notebook for detailed examples of running community detection and visualizing the results. With wordcloud
+    # Extract genes sorted by centrality
+    all_partition_gene_scores = {
+        i: {
+            el[: el.find(" ")]: float(el[el.find("=") + 1 : -1])
+            for el in comm_info.loc[i, "all_sorted_genes"].split("; ")
+        }
+        for i in comm_info.index
+    }
+
+    # Get partition
+    partition = {
+        gene: i for i in all_partition_gene_scores for gene in all_partition_gene_scores[i]
+    }
+
+    # Pick only top 50 genes for annotation
+    central_gene_scores = {
+        i: {
+            gene_name: gene_score
+            for k, (gene_name, gene_score) in enumerate(gene_scores.items())
+            if k < limit_anno_until
+        }
+        for i, gene_scores in all_partition_gene_scores.items()
+    }
+
+    # Scale the centrality score
+    central_genes = {
+        i: dict(
+            zip(
+                gene_scores.keys(),
+                scGRN.util.scale_int(list(gene_scores.values()), 1, 100),
+            )
+        )
+        for i, gene_scores in central_gene_scores.items()
+    }
+
+    return central_genes, partition
+
+
+def extract_genes(gene_str):
+    """Extract genes from string in `all_sorted_genes`."""
+    return list(map(lambda el: el[: el.find(" ")], gene_str.split("; ")))
+
+limit_anno_until = 50  # use only top 50 genes for annotation
+
+# Load community info
+comm_info = scGRN.ana.get_community_info(
+    pat=None,  # loading all patients
+    cell_type='T_cells',  # cell type
+    # data_home=_DATA_HOME  # optional
+)
+
+# Load the graph
+G = scGRN.ana.get_nx_graph(
+    pat=None,  # loading all patients
+    cell_type='T_cells',  # cell type
+    net_type='all',  # network type
+    # data_home=_DATA_HOME  # optional
+)
+
+# Select only genes from partition in the graph
+G = G.subgraph(list(set(chain(*comm_info["all_sorted_genes"].apply(extract_genes)))))
+
+# Get central genes and partition
+central_genes, partition = get_central_genes_and_partition(comm_info)
+    
+f, ax = plt.subplots(figsize=(25, 45))
+cmap = ListedColormap(sns.color_palette(cc.glasbey_bw, n_colors=comm_info.shape[0]).as_hex())
+
+# Getting positions of squeezed graph (i.e. compressed graph with less nodes)
+squeezed_G, squeezed_partition = scGRN.ana.squeeze_graph(G, partition)
+
+squeezed_pos = scGRN.ana.netgraph_community_layout(squeezed_G, squeezed_partition, seed=_SEED)
+scGRN.ana.plot_cloud(
+    G, partition, squeezed_pos, ax=ax, anno_db='KEGG', 
+    central_genes=central_genes, limit_anno_until=limit_anno_until, 
+    display_func=True
+)
+nx.draw(
+    squeezed_G, 
+    squeezed_pos, 
+    ax=ax, 
+    arrowstyle="->", 
+    arrowsize=20, 
+    connectionstyle=f'arc3, rad = 0.25', 
+    edge_color='k', 
+    width=0.4, 
+    node_color='k', 
+    node_size=50, 
+    alpha=0.03
+)
+nx.draw_networkx_nodes(
+    squeezed_G, 
+    squeezed_pos, 
+    ax=ax, 
+    node_size=100, 
+    nodelist=list(squeezed_partition.keys()), 
+    node_color=list(squeezed_partition.values()), 
+    cmap=cmap, 
+    alpha=0.01
+)
+
+plt.axis('off')
+plt.show()
+```
+
+![TF-target graph](figs/wordcloud.png)
+
+We see that there are 12 communities with tags such as "Cell adhesion", "Cardiomyopathy", "Receptor signaling", and others.
+
+## Visual advanced examples
+
+Please take a look at the [`GRNBoost2_Community_analysis.ipynb`](../notebooks/GRNBoost2_Community_analysis.ipynb) notebook for detailed examples of running community detection and visualizing the results.
